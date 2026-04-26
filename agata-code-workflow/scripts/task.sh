@@ -1254,6 +1254,77 @@ check_project_memory_links() {
   done < <(find "$root/issues" -maxdepth 1 -type f -name 'tk*.md' | sort)
 }
 
+banned_terms_file() {
+  local root="$1"
+  local file="$root/refs/task-check-banned-terms.tsv"
+  [[ -f "$file" ]] || return 1
+  printf '%s\n' "$file"
+}
+
+collect_banned_term_targets() {
+  local root="$1"
+  local file base
+
+  if [[ -d "$root/docs/plan" ]]; then
+    while IFS= read -r file; do
+      printf '%s\n' "$file"
+    done < <(find "$root/docs/plan" -maxdepth 1 -type f -name '*.md' | sort)
+  fi
+
+  if [[ -d "$root/issues" ]]; then
+    while IFS= read -r file; do
+      base="$(basename "$file")"
+      if [[ "$base" =~ \.(tdo|doi|rvw|bkd|cand)\. ]]; then
+        printf '%s\n' "$file"
+      fi
+    done < <(find "$root/issues" -maxdepth 1 -type f -name '*.md' | sort)
+  fi
+}
+
+check_banned_arch_terms() {
+  local root="$1"
+  local cfg line pattern allow_regex reason matches filtered found
+  local targets=()
+
+  cfg="$(banned_terms_file "$root" || true)"
+  [[ -n "$cfg" ]] || return 0
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    targets+=("$line")
+  done < <(collect_banned_term_targets "$root")
+
+  [[ "${#targets[@]}" -gt 0 ]] || return 0
+
+  found=0
+  while IFS=$'\t' read -r pattern allow_regex reason; do
+    [[ -n "${pattern:-}" ]] || continue
+    [[ "$pattern" =~ ^# ]] && continue
+
+    matches="$(rg -n --no-heading -e "$pattern" "${targets[@]}" || true)"
+    [[ -n "$matches" ]] || continue
+
+    filtered="$matches"
+    if [[ -n "${allow_regex:-}" ]]; then
+      filtered="$(printf '%s\n' "$matches" | rg -v -e "$allow_regex" || true)"
+    fi
+
+    [[ -n "$filtered" ]] || continue
+
+    found=1
+    printf '%s\n' "$filtered" >&2
+    if [[ -n "${reason:-}" ]]; then
+      printf 'error: banned architecture term "%s": %s\n' "$pattern" "$reason" >&2
+    else
+      printf 'error: banned architecture term "%s"\n' "$pattern" >&2
+    fi
+  done < "$cfg"
+
+  if [[ "$found" -ne 0 ]]; then
+    die "banned architecture terms detected; fix terms or tighten allow regex in ${cfg}"
+  fi
+}
+
 timestamp_to_epoch() {
   local raw="$1"
   local bsd_raw="$raw"
@@ -1415,6 +1486,7 @@ cmd_check() {
   check_tk_rp_links_exist "$semantic_root"
   check_legacy_reply_chains "$semantic_root"
   check_project_memory_links "$semantic_root"
+  check_banned_arch_terms "$semantic_root"
   check_coauthors_staleness "$semantic_root"
   check_doi_staleness "$semantic_root"
   echo "ok"
