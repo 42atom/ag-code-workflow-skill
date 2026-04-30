@@ -430,8 +430,7 @@ print_usage() {
   cat <<'EOF'
 usage:
   task.sh new <kind> <board> <slug> [prio]
-  task.sh review <issue-id> <rvNNN> <rN-author>
-  task.sh thread <issue-id.rvNNN>
+  task.sh review <issue-id> <rvNNN> <rNNN-author>
   task.sh progress <task-id> <sNN-slug> [state]
   task.sh ls [state]
   task.sh find <id>
@@ -823,10 +822,6 @@ write_new_progress_doc() {
 
 env: ${env_stamp}
 
-## Goal
-
-TODO
-
 ## Done
 
 TODO
@@ -855,10 +850,10 @@ cmd_new() {
 
   assert_control_plane_checkout "$root" "new"
   if [[ "$kind" == "rp" ]]; then
-    die "rp is legacy; use: task.sh review <issue-id> <rvNNN> <rN-author>"
+    die "rp is legacy; use: task.sh review <issue-id> <rvNNN> <rNNN-author>"
   fi
   if [[ "$kind" == "rv" ]]; then
-    die "rv docs are issue-scoped; use: task.sh review <issue-id> <rvNNN> <rN-author>"
+    die "rv docs are issue-scoped; use: task.sh review <issue-id> <rvNNN> <rNNN-author>"
   fi
 
   is_valid_kind "$kind" || die "invalid kind: ${kind}"
@@ -919,57 +914,13 @@ cmd_review() {
 
   find_issue_file_anywhere "$root" "$issue_id" >/dev/null
   [[ "$thread" =~ ^rv[0-9]{3}$ ]] || die "review thread must look like rv001"
-  [[ "$round_author" =~ ^r[0-9]+-[a-z0-9-]+$ ]] || die "review round must look like r1-author"
+  [[ "$round_author" =~ ^r[0-9]{3}-[a-z0-9-]+$ ]] || die "review round must look like r001-author"
 
   file="$(review_doc_path "$root" "$issue_id" "$thread" "$round_author")"
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
   write_new_issue_doc "$file" "rv"
   echo "$file"
-}
-
-cmd_thread() {
-  local root="$1"
-  local thread_ref="$2"
-  local issue_id thread
-
-  [[ "$thread_ref" =~ ^((tk|pl|rs|rf)${ID_DIGITS_RE})\.(rv[0-9]{3})$ ]] \
-    || die "thread id must look like <issue-id>.rvNNN"
-
-  issue_id="${BASH_REMATCH[1]}"
-  thread="${BASH_REMATCH[3]}"
-  find_issue_file_anywhere "$root" "$issue_id" >/dev/null
-
-  python3 - "$root" "$issue_id" "$thread" <<'PY'
-import pathlib
-import re
-import sys
-
-root = pathlib.Path(sys.argv[1])
-issue_id = sys.argv[2]
-thread = sys.argv[3]
-review_dir = root / "docs" / "reviews"
-pattern = re.compile(rf"^{re.escape(issue_id)}\.{re.escape(thread)}-r([0-9]+)-([a-z0-9-]+)\.md$")
-items = []
-
-for path in review_dir.glob(f"{issue_id}.{thread}-r*-*.md"):
-    match = pattern.match(path.name)
-    if match:
-        items.append((int(match.group(1)), match.group(2), path))
-
-if not items:
-    sys.stderr.write(f"error: review thread not found: {issue_id}.{thread}\n")
-    sys.exit(1)
-
-for index, (_, _, path) in enumerate(sorted(items)):
-    if index:
-        print("\n---\n")
-    print(f"<!-- {path.name} -->")
-    content = path.read_text(encoding="utf-8")
-    sys.stdout.write(content)
-    if not content.endswith("\n"):
-        print()
-PY
 }
 
 normalize_doc_id() {
@@ -987,7 +938,7 @@ normalize_doc_id() {
     echo "$raw"
     return 0
   fi
-  if [[ "$raw" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+(\.md)?$ ]]; then
+  if [[ "$raw" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.md)?$ ]]; then
     echo "${raw%.md}"
     return 0
   fi
@@ -995,7 +946,7 @@ normalize_doc_id() {
     echo "$raw"
     return 0
   fi
-  die "id must be 4 or 5 digits, {tk|pl|rs|rf|rp}NNNN, or <issue-id>.rvNNN-rN-author"
+  die "id must be 4 or 5 digits, {tk|pl|rs|rf|rp}NNNN, or <issue-id>.rvNNN-rNNN-author"
 }
 
 find_doc_file() {
@@ -1019,7 +970,7 @@ find_doc_file() {
     return 0
   fi
 
-  if [[ "$doc_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+$ ]]; then
+  if [[ "$doc_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+$ ]]; then
     path="$root/docs/reviews/${doc_id}.md"
     [[ -f "$path" ]] || die "document not found for ${doc_id}"
     printf '%s\n' "$path"
@@ -1383,7 +1334,7 @@ check_rp_names() {
 
   while IFS= read -r file; do
     base="$(basename "$file")"
-    if [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$ ]]; then
+    if [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
       continue
     fi
     [[ "$base" =~ ^rp${ID_DIGITS_RE}\.(tdo|doi|dne|bkd|cand|arvd)\.[a-z0-9-]+\.(review-r[0-9]+-[a-z0-9-]+|reply-r[0-9]+-[a-z0-9-]+)\.md$ ]] \
@@ -1399,7 +1350,7 @@ check_rv_names() {
 
   while IFS= read -r file; do
     base="$(basename "$file")"
-    [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$ ]] \
+    [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]] \
       || continue
     issue_id="${base%%.*}"
     find_issue_file_anywhere "$root" "$issue_id" >/dev/null
@@ -1556,7 +1507,7 @@ normalize_link_target() {
     return 0
   fi
 
-  if [[ "$target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$ ]]; then
+  if [[ "$target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
     echo "$root/docs/reviews/$target"
     return 0
   fi
@@ -1621,7 +1572,7 @@ check_issue_review_links_exist() {
         continue
       fi
 
-      if [[ "$raw_target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+$ ]]; then
+      if [[ "$raw_target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+$ ]]; then
         normalized="$root/docs/reviews/${raw_target}.md"
         [[ -f "$normalized" ]] || die "missing rv link target: $file -> $raw_link"
         continue
@@ -1637,7 +1588,7 @@ check_issue_review_links_exist() {
       normalized="$(normalize_link_target "$root" "$raw_link")"
       base="$(basename "$normalized")"
 
-      if [[ ! "$base" =~ ^rp${ID_DIGITS_RE}\..*\.md$ && ! "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$ && ! "$base" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)\.md$ ]]; then
+      if [[ ! "$base" =~ ^rp${ID_DIGITS_RE}\..*\.md$ && ! "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ && ! "$base" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)\.md$ ]]; then
         continue
       fi
 
@@ -1954,14 +1905,8 @@ main() {
     review)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      [[ $# -eq 4 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rN-author>"
+      [[ $# -eq 4 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rNNN-author>"
       cmd_review "$control_root" "$2" "$3" "$4"
-      ;;
-    thread)
-      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
-      control_root="$(find_control_plane_root "$current_root")"
-      [[ $# -eq 2 ]] || die "usage: task.sh thread <issue-id.rvNNN>"
-      cmd_thread "$control_root" "$2"
       ;;
     progress)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"

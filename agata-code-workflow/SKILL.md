@@ -34,7 +34,7 @@ Do not invent a second state system. The filename state slot is the truth source
 2. `issues/` files carry state. Issue-scoped `rv` files carry review exchange evidence.
 3. `pl` is for discussion/spec. `rs` is for research. `tk` is the executable issue.
 4. Progress files under `docs/progress/` carry execution workpad evidence; they never decide issue closure.
-5. Review files are parent-first and thread/round based: `<issue-id>.rvMMM-rN-author.md`.
+5. Review files are parent-first and thread/round based: `<issue-id>.rvMMM-rNNN-author.md`.
 6. `commit` and `branch` are implementation trace, not task truth.
 7. `coauthors.csv` is only dispatch context, never task state.
 8. Ordinary docs may live outside `issues/`, but they must not redefine workflow state, task truth, progress truth, or review truth.
@@ -76,13 +76,13 @@ Do not invent a second state system. The filename state slot is the truth source
 19. Reuse the same task worktree while the same task is still active. When the task closes into `dne` / `cand` / `arvd` and all related changes are landed, remove that worktree. `bkd` may keep the worktree frozen, but do not mix another task into it.
 20. Preserve id-first naming and keep the filename slots stable except for state.
 21. When an issue moves state, rename the existing `tk` / `pl` / `rs` / `rf` file; do not create a parallel file.
-22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rN-author.md`. Read the thread with `task.sh thread <issue-id.rvNNN>`.
+22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`. Use zero-padded rounds so plain `cat docs/reviews/<issue-id>.rvMMM-r*.md` reads in order.
 23. `rv` records are immutable exchange messages. Once created, treat them as frozen.
-24. Keep the same `rvMMM` for the same review thread; use `r1`, `r2`, `r3` for each exchange message.
+24. Keep the same `rvMMM` for the same review thread; use `r001`, `r002`, `r003` for each exchange message.
 25. Review is evidence, not a `tk` state. Keep review rounds in `rv` records and close the controlling `tk` only after blocking review findings are resolved.
-26. Links must use stable anchors, not stateful full filenames. Use `tk0001`, `rp0001`, `tk0001.rv001-r1-codex`, or `tk0001.s01-repro`; never link `tk0001.tdo.*.md`.
+26. Links must use stable anchors, not stateful full filenames. Use `tk0001`, `rp0001`, `tk0001.rv001-r001-codex`, or `tk0001.s01-repro`; never link `tk0001.tdo.*.md`.
 27. Use `docs/progress/<tk-id>.sNN-<slug>.<state>.md` when a long task needs a file-driven workpad. Valid progress states are `tdo`, `doi`, `dne`, and `bkd`.
-28. Progress files are task-scoped execution ledger entries. They may record env stamp, goal, done, verify, next, and risk; they do not replace the parent `tk`.
+28. Progress files are task-scoped execution ledger entries. They may record env stamp, done, verify, next, and risk; they do not replace the parent `tk`.
 29. A closed parent `tk` must not leave open progress steps. Drain or close progress before moving the parent to `dne`, `cand`, or `arvd`.
 30. `refs/project-memory-aaak.md` is historical memory, not task truth. Memory-gated tasks must anchor there as `锚: tkNNNN` / `锚：tkNNNN` or `锚: tkNNNNN` / `锚：tkNNNNN`.
 31. Stable architectural review judgments, freeze points, and recurring risk rules belong in project memory when they will matter after the current chat; routine task progress does not.
@@ -93,7 +93,7 @@ Do not invent a second state system. The filename state slot is the truth source
 36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
 37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
 38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
-39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rN-author>` for review exchange docs.
+39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rNNN-author>` for review exchange docs.
 40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
 41. Do not write project memory just because you are creating a fresh `pl` / `rs` / `tk`. Memory is for stable milestones, key decisions, freeze points, or tasks that explicitly require `memory: required`.
 42. `task.sh move <id> doi` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. In same-engine concurrency, thread id is the primary disambiguator.
@@ -127,9 +127,8 @@ Put the close-out checklist in the parent `tk`, not in `docs/progress/`.
 Truth split:
 
 - `accept` is the task contract.
-- Progress `Goal` is the current step intent.
 - `Completion Bar` is the close gate.
-- If they conflict, fix the parent `tk`; progress is evidence, not authority.
+- Progress is evidence, not authority.
 
 Minimal checklist:
 
@@ -164,7 +163,7 @@ Minimal loop:
 1. Primary agent writes or updates the controlling `tk` / `pl` on the shared control plane.
 2. Primary agent assigns each sub-agent a bounded scope, owner files/modules, non-scope, verification commands, and expected return format.
 3. Implementation sub-agents work in dedicated worktrees and report changed files, verification, unfinished work, and handoff notes.
-4. Review sub-agents write findings as `docs/reviews/<issue-id>.rvMMM-rN-author.md` when assigned a clean review round; otherwise their raw output goes to `aidocs/agent-runs/`. They do not move the controlling issue state.
+4. Review sub-agents write findings as `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` when assigned a clean review round; otherwise their raw output goes to `aidocs/agent-runs/`. They do not move the controlling issue state.
 5. Primary agent consumes sub-agent output, promotes valid conclusions into `tk` / `rv`, rejects or fixes bad output, and decides whether to repair, re-dispatch, split a new `tk`, request user decision, or close.
 6. Primary agent closes only after implementation is on the target mainline, blocking review findings are resolved or explicitly overruled, verification evidence is written back, and `task.sh check` passes.
 
@@ -185,8 +184,7 @@ Resolve bundled helper paths relative to this `SKILL.md` file's directory. Do no
 Current commands:
 
 - `task.sh new <kind> <board> <slug> [prio]`
-- `task.sh review <issue-id> <rvNNN> <rN-author>`
-- `task.sh thread <issue-id.rvNNN>`
+- `task.sh review <issue-id> <rvNNN> <rNNN-author>`
 - `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh ls [state]`
 - `task.sh find <id>`
@@ -199,13 +197,13 @@ Current commands:
 - `progress_view.py [--project-root <path>] [--no-open]`
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, and memory-gated close checks.
-For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rN-author>`; do not allocate global review ids for new work.
-Use `task.sh thread <issue-id.rvNNN>` for a read-only combined view of one review thread. It does not rewrite or append `rv` files.
+For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author>`; do not allocate global review ids for new work.
+Read a review thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
 `task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.
 For `task.sh move`, `<issue-id>` may be `tkNNNN`, `plNNNN`, `rsNNNN`, or `rfNNNN`; a bare numeric id still means `tkNNNN`.
 For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, when available, `claimed_thread_id`. You can override the coarse claimant with `AGATA_CLAIMANT` and the thread marker with `AGATA_CLAIM_THREAD_ID`.
-`task.sh ls`, `find`, `show`, `new`, `review`, `thread`, `progress`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
+`task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
 Use `task.sh orphan-scan` when you need current-worktree truth drift plus shared-ref comparison before cleanup or recovery.
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die. It re-checks workflow truth, blocks `doi` / `bkd`, and only removes a single linked worktree whose execution diff is already drained against the chosen base ref. It also refuses to delete the worktree that contains the current shell cwd.

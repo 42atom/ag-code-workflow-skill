@@ -71,10 +71,9 @@ Common commands:
 
 ```bash
 ./agata-code-workflow/scripts/task.sh ls [state]
-./agata-code-workflow/scripts/task.sh review tk10061 rv001 r1-gemini
-./agata-code-workflow/scripts/task.sh thread tk10061.rv001
+./agata-code-workflow/scripts/task.sh review tk10061 rv001 r001-gemini
 ./agata-code-workflow/scripts/task.sh progress tk10061 s01-repro
-./agata-code-workflow/scripts/task.sh find tk10061.rv001-r1-gemini
+./agata-code-workflow/scripts/task.sh find tk10061.rv001-r001-gemini
 ./agata-code-workflow/scripts/task.sh find tk10061.s01-repro
 ./agata-code-workflow/scripts/task.sh show 10061
 ./agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate p1
@@ -88,12 +87,12 @@ Common commands:
 ```
 
 For `task.sh new`, the contract is literal: `<kind> <board> <slug> [prio]`.
-`board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rN-author>`.
-Review threads are stored as one immutable message per file. Use `task.sh thread <issue-id.rvNNN>` for the read-only combined view.
+`board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
+Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 `task.sh new` uses an atomic `.agata-new-id.lock` directory while allocating ids. If it reports busy, rerun after the other allocator finishes.
 Execution workpad steps use `task.sh progress <task-id> <sNN-slug> [state]` and land under `docs/progress/`. Their state is step state only; parent task closure remains in `issues/`.
 For state-slot changes, use `task.sh move` first. Manual rename is only a helper-gap fallback for a clearly legal same-file state change; run `task.sh check` immediately and report the helper gap.
-Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r1-codex`, or `tk0001.s01-repro`; never link stateful full filenames such as `tk0001.tdo.*.md`.
+Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r001-codex`, or `tk0001.s01-repro`; never link stateful full filenames such as `tk0001.tdo.*.md`.
 During migration, `task.sh check` warns on old stateful links by default. Use `AGATA_STRICT_STABLE_LINKS=1 task.sh check` to turn the warning into a failure.
 `docs/plan/` is legacy-only. New plans go to `issues/pl...`; still-relevant old plans should be migrated there, and the rest archived under `docs/archive/legacy-plan/`.
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
@@ -104,7 +103,7 @@ Suggested staging layout: `aidocs/inbox/`, `aidocs/references/`, `aidocs/design/
 Before closure, promote anything durable to its real owner: execution truth to `issues/`, execution workpad to `docs/progress/`, review exchange to `docs/reviews/`, long-lived memory to `refs/project-memory-aaak.md`, project documentation to `docs/`, and product assets to the product asset tree.
 When the user explicitly wants sub-agents, the primary agent owns dispatch, recovery, and closure. Raw sub-agent output is advisory until promoted into `tk`, `rv`, memory, docs, or mainline code. Failed or partial sub-agent runs go to `aidocs/agent-runs/` for recovery, not to workflow truth.
 In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` are branch mirrors, not the authoritative truth view.
-Workflow helpers such as `task.sh ls`, `find`, `show`, `new`, `review`, `thread`, `progress`, `move`, `archive`, and `prune` automatically resolve truth through the shared control plane, even when you call them from a linked task worktree.
+Workflow helpers such as `task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `archive`, and `prune` automatically resolve truth through the shared control plane, even when you call them from a linked task worktree.
 `task.sh check` is split on purpose: truth-pollution checks stay local to the current worktree, while all workflow semantics and staleness checks read from the shared control plane. `task.sh orphan-scan` keeps the current-worktree lens while also comparing shared refs.
 If a task worktree needs notes or drafts, keep them outside `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` until the authoritative update is ready to land on the shared checkout.
 A successful `task.sh check` only says the workflow semantics are valid. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
@@ -154,7 +153,7 @@ Rules:
 - progress is workpad evidence, not closure authority
 - parent `tk.links` may use stable anchors like `tk0615.s01-repro`
 
-Close-out lives in the parent `tk` as a Completion Bar: progress drained, acceptance met, validation done, review feedback swept, implementation on mainline, `task.sh check` pass, worktree ready for cleanup. `accept` is the task contract; progress `Goal` is step intent; Completion Bar is the close gate.
+Close-out lives in the parent `tk` as a Completion Bar: progress drained, acceptance met, validation done, review feedback swept, implementation on mainline, `task.sh check` pass, worktree ready for cleanup. `accept` is the task contract; progress is evidence; Completion Bar is the close gate.
 
 ## AAAK
 

@@ -623,37 +623,37 @@ reviewer: user
 why: review messages should encode parent issue and thread in the filename
 scope: create one issue-scoped rv message
 risk: low
-accept: review command creates docs/reviews/tk10009.rv001-r1-gemini.md
+accept: review command creates docs/reviews/tk10009.rv001-r001-gemini.md
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
 claimed_by: codex
 links:
-  - docs/reviews/tk10009.rv001-r1-gemini.md
+  - docs/reviews/tk10009.rv001-r001-gemini.md
 ---
 EOF
 
-run_task "$project_root" review tk10009 rv001 r1-gemini
+run_task "$project_root" review tk10009 rv001 r001-gemini
 assert_eq "$task_status" "0" "review command should create issue-scoped rv docs"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r1-gemini.md" "review command should encode task, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-gemini.md" "review command should encode task, thread, round, and author"
 [[ -f "$task_stdout" ]] || fail "review command should create the rv file"
 
 run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid issue-scoped rv docs"
 assert_eq "$task_stdout" "ok" "valid rv check should print ok"
 
-run_task "$project_root" find tk10009.rv001-r1-gemini
+run_task "$project_root" find tk10009.rv001-r001-gemini
 assert_eq "$task_status" "0" "find should locate issue-scoped rv docs by full review id"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r1-gemini.md" "find should resolve full issue-scoped rv ids"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-gemini.md" "find should resolve full issue-scoped rv ids"
+printf 'r001-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r001-gemini.md"
 
-run_task "$project_root" review tk10009 rv001 r2-codex
+run_task "$project_root" review tk10009 rv001 r002-codex
 assert_eq "$task_status" "0" "review command should create the next message in the same thread"
+printf 'r002-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r002-codex.md"
 
-run_task "$project_root" thread tk10009.rv001
-assert_eq "$task_status" "0" "thread command should render a review thread"
-assert_contains "$task_stdout" "<!-- tk10009.rv001-r1-gemini.md -->" "thread output should include r1 filename marker"
-assert_contains "$task_stdout" "<!-- tk10009.rv001-r2-codex.md -->" "thread output should include r2 filename marker"
-[[ "$task_stdout" == *"tk10009.rv001-r1-gemini.md"*"tk10009.rv001-r2-codex.md"* ]] \
-  || fail "thread output should preserve round order"
+thread_view="$(cat "$project_root"/docs/reviews/tk10009.rv001-r*.md)"
+assert_contains "$thread_view" "r001-marker" "plain cat should read r001"
+assert_contains "$thread_view" "r002-marker" "plain cat should read r002"
+[[ "$thread_view" == *"r001-marker"*"r002-marker"* ]] || fail "plain cat should preserve padded round order"
 
 write_file "$project_root/issues/pl10010.doi.runtime.plan-review.p2.md" <<'EOF'
 ---
@@ -663,16 +663,16 @@ reviewer: user
 why: plans also need pre-implementation review evidence
 scope: create one plan-scoped rv message
 risk: low
-accept: review command creates docs/reviews/pl10010.rv001-r1-opus.md
+accept: review command creates docs/reviews/pl10010.rv001-r001-opus.md
 memory: none
 links:
-  - docs/reviews/pl10010.rv001-r1-opus.md
+  - docs/reviews/pl10010.rv001-r001-opus.md
 ---
 EOF
 
-run_task "$project_root" review pl10010 rv001 r1-opus
+run_task "$project_root" review pl10010 rv001 r001-opus
 assert_eq "$task_status" "0" "review command should support non-task issue parents"
-assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r1-opus.md" "review command should encode plan parent, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r001-opus.md" "review command should encode plan parent, thread, round, and author"
 
 run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid plan-scoped rv docs"
@@ -681,12 +681,16 @@ run_task "$project_root" review tk10009 rv1 r2-gpt
 assert_eq "$task_status" "1" "review command should reject non-padded thread ids"
 assert_contains "$task_stderr" "review thread must look like rv001" "review should explain thread shape"
 
+run_task "$project_root" review tk10009 rv001 r2-gpt
+assert_eq "$task_status" "1" "review command should reject non-padded round ids"
+assert_contains "$task_stderr" "review round must look like r001-author" "review should explain round shape"
+
 rm -rf "$project_root"
 
 ######## issue-scoped rv docs should require an existing parent issue
 
 project_root="$(make_project)"
-write_file "$project_root/docs/reviews/tk10010.rv001-r1-gemini.md" <<'EOF'
+write_file "$project_root/docs/reviews/tk10010.rv001-r001-gemini.md" <<'EOF'
 ---
 owner: user
 assignee: codex

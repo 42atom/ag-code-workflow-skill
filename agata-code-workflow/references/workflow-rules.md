@@ -99,7 +99,7 @@ state：
 - 需要摸底验证，落 `rs`
 - 范围和验收清楚后，才创建 `tk`
 - review 讨论、阻断点、回合往返，都落 `rv`
-- 读取完整 review thread 时用 `task.sh thread <issue-id.rvNNN>`；不要为了阅读方便把多条 `rv` 合成一个可写文件
+- 读取完整 review thread 时用 `cat docs/reviews/<issue-id>.rvNNN-r*.md`；不要为了阅读方便把多条 `rv` 合成一个可写文件
 - `pl` 不是 backlog；backlog 是已收敛但未开做的 `tk.tdo`
 - 受资料启发但事实未明，先落 `rs`
 - 有方向但不适合马上执行，落 `pl` 并保持 `tdo`
@@ -120,7 +120,7 @@ state：
 
 - issue 引用用 `tk0001` / `pl0001` / `rs0001` / `rf0001`
 - legacy review 引用用 `rp0001`
-- issue-scoped review 引用用 `tk0001.rv001-r1-codex`
+- issue-scoped review 引用用 `tk0001.rv001-r001-codex`
 - progress 引用用 `tk0001.s01-repro`
 - 禁止在 `links` 写 `tk0001.tdo.*.md`、`tk0001.doi.*.md`、`rp0001.dne.*.md` 或 `tk0001.s01-repro.dne.md`
 - 文件名是瞬时投影；id 才是永久锚点
@@ -186,9 +186,6 @@ docs/progress/tk0615.s03-electron-bridge.doi.md
 
 env: <host>:<abs-workdir>@<short-sha>
 
-## Goal
-一句话目标。
-
 ## Done
 已完成内容。
 
@@ -205,9 +202,8 @@ env: <host>:<abs-workdir>@<short-sha>
 收口检查放父 `tk`，不是 progress：
 
 - `accept` = 任务契约
-- progress `Goal` = 当前步骤目标
 - `Completion Bar` = 关单 checklist
-- 三者冲突时，修父 `tk`；progress 只作证据，不作关单权威
+- progress 只作证据，不作关单权威
 
 ```md
 ## Completion Bar
@@ -330,7 +326,7 @@ handle,owner,engine,role,status,updated_at,note
 - `tk` 负责状态推进
 - `rv` 负责评审交换证据
 - `rv` 不替代 `tk`
-- 新增 review 默认使用 `docs/reviews/<issue-id>.rvMMM-rN-author.md`
+- 新增 review 默认使用 `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`
 - 旧 `rpNNNN` 只作历史兼容；不再作为新增 review 主线
 - review 结论要回写到 `tk`
 - review 是 `rv` 证据链，不是 `tk` 状态；`tk` 保持在 `doi` 直到 owner 修完阻断并关闭
@@ -342,11 +338,11 @@ review 命名规则：
 
 - 评审文档必须 parent-first
 - 禁止 `re.` / `re.re.` 链式命名
-- 新增 review 文件统一格式：`<issue-id>.rvMMM-rN-author.md`
-- `<issue-id>` 是父 `tk` / `pl` / `rs` / `rf`；`rvMMM` 是同一问题线；`rN` 是该问题线内的第 N 次交换；`author` 是写入者
+- 新增 review 文件统一格式：`<issue-id>.rvMMM-rNNN-author.md`
+- `<issue-id>` 是父 `tk` / `pl` / `rs` / `rf`；`rvMMM` 是同一问题线；`rNNN` 是该问题线内的第 N 次交换；`author` 是写入者
 - 一次发言一份文件；同一问题线继续同一个 `rvMMM`，新问题线才开新的 `rvMMM`
 - `rv` 一经成文默认冻结；新回合新增新文件，不回头改旧 `rv`
-- 旧 `rpNNNN.state.board.review-rN-author.md` / `reply-rN-author.md` 文件可读可查，但新增不再使用
+- 旧 `rpNNNN.state.board.review-rNNN-author.md` / `reply-rNNN-author.md` 文件可读可查，但新增不再使用
 
 审核隔离规则：
 
@@ -369,7 +365,7 @@ review 命名规则：
 - task / review / salvage worktree 默认放在仓库目录外部的项目级 worktree 根下；禁止放进被编辑仓库内部，也不要平铺在仓库同级制造混乱
 - `doi` 落盘后，才在该 task 的专属 worktree 中推进实现
 - task worktree 只做代码、测试、生成物和临时草稿，不偷偷改 workflow 状态槽，不把自己当第二控制面
-- `task.sh ls` / `find` / `show` / `new` / `review` / `thread` / `progress` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
+- `task.sh ls` / `find` / `show` / `new` / `review` / `progress` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
 - `task.sh check` 例外：只有“当前 worktree 有没有 truth 污染”这一刀留在本地；重复 id、review 约束、memory、staleness 等全局语义仍由共享控制面裁决
 - `task.sh check` 通过只说明工作流语义合法，不说明当前共享控制面上的所有脏改都属于你
 - 状态槽迁移默认走 `task.sh move`；只有 helper 明确表达不了合法 rename 时，才允许手动改同一文件的状态槽
@@ -419,9 +415,9 @@ review 命名规则：
 
 例子：
 
-- `tk0061.rv001-r1-codex.md`
-- `tk0061.rv001-r2-mobile007kx.md`
-- `tk0061.rv001-r3-codex.md`
+- `tk0061.rv001-r001-codex.md`
+- `tk0061.rv001-r002-mobile007kx.md`
+- `tk0061.rv001-r003-codex.md`
 
 ## 8. dne 关闭门槛
 
@@ -489,7 +485,7 @@ action：
 规则：
 
 - 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面统一分配下一个可用 id
-- 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rN-author>`，不走全局发号
+- 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rNNN-author>`，不走全局发号
 - 新建 progress 时走 `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh new` / `task.sh review` / `task.sh progress` 前必须先读相关 `pl` / `rs` / `tk` / `rv` / progress 真相源，确认当前 scope 没有被已有任务覆盖
 - 不手工在并发 shell 里做 `max(id)+1` 发号
@@ -509,6 +505,15 @@ action：
 - 若任务在 `bkd`，`prune` 默认失败，防止误删冻结现场
 - 若任务在 `dne` / `cand` / `arvd`，`prune` 仍要确认目标 linked worktree 已无未提交修改，且相对 `base-ref` 不再携带执行面独有差异
 - `prune` 只处理单一明确绑定的 linked worktree；找不到或找到多个都应失败，不替操作者猜
+
+## 9.3 helper 拆分预研
+
+当前不做物理拆分，只记边界：
+
+- 新功能默认不进 `task.sh`；先问能否用 `find` / `cat` / `mv` / `git` 组合解决
+- 若必须加 helper，优先删掉同类 helper 复杂度，而不是继续扩张入口
+- 将来拆分时按子命令物理拆：`task-new`、`task-move`、`task-review`、`task-progress`、`task-check`
+- 拆分目标不是迁移代码位置，而是让每片工具职责小到可直接审计
 
 ## 10. 回合收口输出
 
@@ -556,9 +561,9 @@ issues/
   tk0061.doi.runtime.daily-production-stats-log.p1.md
 
 docs/reviews/
-  tk0061.rv001-r1-codex.md
-  tk0061.rv001-r2-mobile007kx.md
-  tk0061.rv001-r3-codex.md
+  tk0061.rv001-r001-codex.md
+  tk0061.rv001-r002-mobile007kx.md
+  tk0061.rv001-r003-codex.md
 
 docs/progress/
   tk0061.s01-repro.dne.md
@@ -576,8 +581,8 @@ docs/
 1. 建任务：`tk0061.tdo...`
 2. 开做：`tk0061.doi...`
 3. 长任务过程：按需新增 `docs/progress/tk0061.sNN-*.state.md`
-4. 首轮评审：新增 `tk0061.rv001-r1-codex.md`
-5. 回复评审：新增 `tk0061.rv001-r2-mobile007kx.md`
-6. 二轮评审：新增 `tk0061.rv001-r3-codex.md`
+4. 首轮评审：新增 `tk0061.rv001-r001-codex.md`
+5. 回复评审：新增 `tk0061.rv001-r002-mobile007kx.md`
+6. 二轮评审：新增 `tk0061.rv001-r003-codex.md`
 7. 修复或回复 review：新增后续 `rv` 或 `progress`，任务仍保持 `tk0061.doi...`
 8. 人工关闭：progress 全部 `dne`，任务文件改名 `tk0061.dne...`
