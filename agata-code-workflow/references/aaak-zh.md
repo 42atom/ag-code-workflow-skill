@@ -209,7 +209,7 @@ Do not force AAAK for every paragraph.
 Best fit:
 
 - `rs` conclusions
-- `rp` conclusions
+- `rv` review exchanges
 - top summary block in `tk`
 - project memory notes
 

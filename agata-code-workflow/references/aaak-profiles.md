@@ -58,7 +58,7 @@ Example:
 ```text
 题: quick-render-priority
 时: 2026-04-10
-态: rvw
+态: doi
 项: quick 任务优先于 batch backlog
 因: 客户快速预览被饿死
 范: worker claim 顺序
@@ -73,7 +73,7 @@ More compressed variant:
 ```text
 题: 快产先取
 时: 2026-04-10
-态: rvw
+态: doi
 项: quick 先于 batch backlog
 因: 快览久饿
 范: claim 次序
@@ -134,9 +134,9 @@ More compressed variant:
 源: app-navbar.jsx|task-queue.jsx
 ```
 
-## AAAK-RP
+## AAAK-RV
 
-Use for review rounds and reply summaries.
+Use for `rv` review exchanges and reply summaries.
 
 Recommended fields:
 
@@ -165,7 +165,7 @@ Example:
 ```text
 题: tk0061
 时: 2026-04-11
-轮: r1
+轮: r001
 决: 不通过
 阻: 跨午夜 batch 重复计数
 因: item归日 + batch总数混用
@@ -178,7 +178,7 @@ More compressed variant:
 ```text
 题: tk0061
 时: 2026-04-11
-轮: r1
+轮: r001
 决: 不过
 阻: 跨午夜复计
 因: item归日|batch总数混写
@@ -217,7 +217,7 @@ Example:
 题: workflow-review-model
 时: 2026-04-11
 锚: tk0061
-决: review 文档改为 task-first + rN
+决: review 文档改为 parent-first + rNNN
 因: re.re 命名链过深且不利于 grep
 链: follows=旧 docs/opus-feedback 流
 评: 新增内容按新规，历史文档暂不批量迁移
@@ -230,7 +230,7 @@ More compressed variant:
 题: 评审制式迁移
 时: 2026-04-11
 锚: tk0061
-决: review 改 task-first+rN
+决: review 改 parent-first+rNNN
 因: re.re 过深|grep 不利
 链: follows=旧 docs/opus-feedback 流
 评: 新文从新|旧档暂存
