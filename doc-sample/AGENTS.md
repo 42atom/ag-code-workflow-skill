@@ -6,6 +6,7 @@ When work touches any of the following, use that skill:
 
 - `issues/`
 - `docs/reviews/`
+- `docs/progress/`
 - `refs/project-memory-aaak.md`
 - `operator-checklist-*`
 - `coauthors.csv`

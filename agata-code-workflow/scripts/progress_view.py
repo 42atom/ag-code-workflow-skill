@@ -19,17 +19,27 @@ from typing import Any
 DOC_RE = re.compile(
     r"^(?P<kind>tk|pl|rs|rf|rp)"
     r"(?P<digits>\d{4,5})\."
-    r"(?P<state>tdo|doi|rvw|dne|bkd|cand|arvd)\."
+    r"(?P<state>tdo|doi|dne|bkd|cand|arvd)\."
     r"(?P<board>[a-z0-9-]+)\."
     r"(?P<slug>[a-z0-9-]+?)"
     r"(?:\.(?P<priority>p[0-2]))?\.md$"
 )
+RV_RE = re.compile(
+    r"^(?P<issue_id>(?P<issue_kind>tk|pl|rs|rf)(?P<digits>\d{4,5}))\."
+    r"(?P<thread>rv[0-9]{3})-"
+    r"(?P<round>r[0-9]+)-"
+    r"(?P<author>[a-z0-9-]+)\.md$"
+)
+PROGRESS_RE = re.compile(
+    r"^(?P<task_id>tk(?P<digits>\d{4,5}))\."
+    r"(?P<step>s[0-9]{2}-[a-z0-9-]+)\."
+    r"(?P<state>tdo|doi|dne|bkd)\.md$"
+)
 
-STATE_ORDER = ["doi", "rvw", "bkd", "tdo", "dne", "cand", "arvd"]
+STATE_ORDER = ["doi", "bkd", "tdo", "dne", "cand", "arvd"]
 STATE_LABEL = {
     "tdo": "待做",
     "doi": "进行中",
-    "rvw": "评审中",
     "dne": "已完成",
     "bkd": "阻塞",
     "cand": "已取消",
@@ -38,7 +48,6 @@ STATE_LABEL = {
 STATE_TONE = {
     "tdo": "todo",
     "doi": "active",
-    "rvw": "review",
     "dne": "done",
     "bkd": "blocked",
     "cand": "cancelled",
@@ -50,9 +59,11 @@ KIND_LABEL = {
     "rs": "研究",
     "rf": "参考",
     "rp": "评审",
+    "rv": "评审",
+    "pg": "进度",
 }
 PRIORITY_RANK = {"p0": 0, "p1": 1, "p2": 2, "": 9}
-ACTIVE_STATES = {"tdo", "doi", "rvw", "bkd"}
+ACTIVE_STATES = {"tdo", "doi", "bkd"}
 DONE_STATES = {"dne"}
 HISTORY_STATES = {"dne", "cand", "arvd"}
 STALE_COAUTHOR_SECONDS = 24 * 60 * 60
@@ -210,6 +221,10 @@ def normalize_link(project_root: Path, raw_link: str) -> Path:
         return Path(target)
     if re.match(r"^rp\d{4,5}\..*\.md$", target):
         return project_root / "docs" / "reviews" / target
+    if re.match(r"^(tk|pl|rs|rf)\d{4,5}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$", target):
+        return project_root / "docs" / "reviews" / target
+    if re.match(r"^tk\d{4,5}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)\.md$", target):
+        return project_root / "docs" / "progress" / target
     return project_root / target
 
 
@@ -235,6 +250,45 @@ def resolve_link_entry(project_root: Path, raw_link: str) -> dict[str, Any]:
             "file_url": matches[0].resolve().as_uri() if matches else "",
         }
 
+    if re.fullmatch(r"(tk|pl|rs|rf)\d{4,5}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+", target):
+        path = project_root / "docs" / "reviews" / f"{target}.md"
+        exists = path.exists()
+        resolved = path.resolve()
+        return {
+            "raw": raw_link,
+            "path": str(resolved),
+            "relative_path": str(resolved).replace(str(project_root.resolve()) + "/", ""),
+            "label": target,
+            "exists": exists,
+            "file_url": resolved.as_uri() if exists else "",
+        }
+
+    if re.fullmatch(r"tk\d{4,5}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)", target):
+        path = project_root / "docs" / "progress" / f"{target}.md"
+        exists = path.exists()
+        resolved = path.resolve()
+        return {
+            "raw": raw_link,
+            "path": str(resolved),
+            "relative_path": str(resolved).replace(str(project_root.resolve()) + "/", ""),
+            "label": target,
+            "exists": exists,
+            "file_url": resolved.as_uri() if exists else "",
+        }
+
+    if re.fullmatch(r"tk\d{4,5}\.s[0-9]{2}-[a-z0-9-]+", target):
+        progress_root = project_root / "docs" / "progress"
+        matches = sorted(progress_root.glob(f"{target}.*.md")) if progress_root.is_dir() else []
+        first = matches[0].resolve() if matches else (progress_root / target).resolve()
+        return {
+            "raw": raw_link,
+            "path": str(first),
+            "relative_path": str(first).replace(str(project_root.resolve()) + "/", ""),
+            "label": target,
+            "exists": bool(matches),
+            "file_url": matches[0].resolve().as_uri() if matches else "",
+        }
+
     normalized = normalize_link(project_root, raw_link)
     exists = normalized.exists()
     return {
@@ -247,11 +301,20 @@ def resolve_link_entry(project_root: Path, raw_link: str) -> dict[str, Any]:
     }
 
 
+def frontmatter_list(frontmatter: dict[str, Any], key: str) -> list[str]:
+    value = frontmatter.get(key, [])
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
 def derive_relation_summary(doc: dict[str, Any], siblings: list[dict[str, Any]], linked_entries: list[dict[str, Any]]) -> dict[str, Any]:
     kind_counts = Counter(item["kind"] for item in siblings)
     derived_bits = [
         f"{kind}" if count == 1 else f"{kind}×{count}"
-        for kind, count in ((kind, kind_counts.get(kind, 0)) for kind in ["pl", "rs", "rf", "rp", "tk"])
+        for kind, count in ((kind, kind_counts.get(kind, 0)) for kind in ["pl", "rs", "rf", "rp", "rv", "pg", "tk"])
         if count
     ]
     linked_bits = [item["label"] for item in linked_entries[:4]]
@@ -267,23 +330,113 @@ def derive_relation_summary(doc: dict[str, Any], siblings: list[dict[str, Any]],
 
 def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
     match = DOC_RE.match(path.name)
-    if not match:
+    rv_match = RV_RE.match(path.name)
+    progress_match = PROGRESS_RE.match(path.name)
+    if not match and not rv_match and not progress_match:
         return None
 
     stat = path.stat()
     text = path.read_text(encoding="utf-8")
     frontmatter, body = parse_frontmatter(text)
-    links = frontmatter.get("links", [])
-    if not isinstance(links, list):
-        links = []
+    links = frontmatter_list(frontmatter, "links")
+    depends_on = frontmatter_list(frontmatter, "depends_on")
 
     rel_path = path.resolve().relative_to(project_root.resolve())
-    title = first_heading(body) or humanize_slug(match.group("slug"))
+    fallback_slug = match.group("slug") if match else path.stem
+    title = first_heading(body) or humanize_slug(fallback_slug)
     summary = frontmatter.get("why") or first_paragraph(body) or frontmatter.get("scope") or title
 
     normalized_links = []
     for raw in links:
         normalized_links.append(resolve_link_entry(project_root, raw))
+
+    if rv_match:
+        issue_id = rv_match.group("issue_id")
+        thread = rv_match.group("thread")
+        round_id = rv_match.group("round")
+        author = rv_match.group("author")
+        return {
+            "doc_id": f"{issue_id}.{thread}-{round_id}",
+            "anchor_id": rv_match.group("digits"),
+            "kind": "rv",
+            "kind_label": KIND_LABEL["rv"],
+            "state": "dne",
+            "state_label": STATE_LABEL["dne"],
+            "tone": STATE_TONE["dne"],
+            "board": author,
+            "slug": f"{thread}-{round_id}-{author}",
+            "title": title,
+            "summary": summary,
+            "priority": "",
+            "priority_rank": PRIORITY_RANK[""],
+            "path": str(rel_path),
+            "file_url": path.resolve().as_uri(),
+            "modified_at": format_iso(stat.st_mtime),
+            "modified_display": format_display(stat.st_mtime),
+            "modified_epoch": stat.st_mtime,
+            "archived": "docs/reviews/archive/" in str(rel_path).replace("\\", "/"),
+            "owner": frontmatter.get("owner", ""),
+            "assignee": frontmatter.get("assignee", ""),
+            "reviewer": frontmatter.get("reviewer", ""),
+            "risk": frontmatter.get("risk", ""),
+            "accept": frontmatter.get("accept", ""),
+            "verify": frontmatter.get("verify", ""),
+            "code_version": frontmatter.get("code_version", ""),
+            "memory": frontmatter.get("memory", ""),
+            "links": normalized_links,
+            "depends_on": [],
+            "dependencies": [],
+            "ready_status": "",
+            "dag_blocked": False,
+            "progress_steps": [],
+            "progress_open_count": 0,
+            "active_progress": None,
+        }
+
+    if progress_match:
+        task_id = progress_match.group("task_id")
+        step = progress_match.group("step")
+        state = progress_match.group("state")
+        return {
+            "doc_id": f"{task_id}.{step}",
+            "anchor_id": progress_match.group("digits"),
+            "parent_id": task_id,
+            "kind": "pg",
+            "kind_label": KIND_LABEL["pg"],
+            "state": state,
+            "state_label": STATE_LABEL[state],
+            "tone": STATE_TONE[state],
+            "board": "progress",
+            "slug": step,
+            "title": title,
+            "summary": summary,
+            "priority": "",
+            "priority_rank": PRIORITY_RANK[""],
+            "path": str(rel_path),
+            "file_url": path.resolve().as_uri(),
+            "modified_at": format_iso(stat.st_mtime),
+            "modified_display": format_display(stat.st_mtime),
+            "modified_epoch": stat.st_mtime,
+            "archived": "docs/progress/archive/" in str(rel_path).replace("\\", "/"),
+            "owner": frontmatter.get("owner", ""),
+            "assignee": frontmatter.get("assignee", ""),
+            "reviewer": frontmatter.get("reviewer", ""),
+            "risk": frontmatter.get("risk", ""),
+            "accept": frontmatter.get("accept", ""),
+            "verify": frontmatter.get("verify", ""),
+            "code_version": frontmatter.get("code_version", ""),
+            "memory": frontmatter.get("memory", ""),
+            "why": frontmatter.get("why", ""),
+            "scope": frontmatter.get("scope", ""),
+            "links": normalized_links,
+            "depends_on": [],
+            "dependencies": [],
+            "ready_status": "",
+            "dag_blocked": False,
+            "progress_steps": [],
+            "progress_open_count": 0,
+            "active_progress": None,
+        }
 
     record = {
         "doc_id": f"{match.group('kind')}{match.group('digits')}",
@@ -316,9 +469,57 @@ def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
         "why": frontmatter.get("why", ""),
         "scope": frontmatter.get("scope", ""),
         "links": normalized_links,
+        "depends_on": depends_on,
+        "dependencies": [],
+        "ready_status": "",
+        "dag_blocked": False,
+        "progress_steps": [],
+        "progress_open_count": 0,
+        "active_progress": None,
     }
 
     return record
+
+
+def resolve_dependency_id(raw: str) -> str:
+    value = strip_quotes(raw).strip()
+    if re.fullmatch(r"(tk|pl|rs|rf)\d{4,5}", value):
+        return value
+    return value
+
+
+def attach_dependency_status(docs: list[dict[str, Any]]) -> None:
+    issue_docs = {
+        doc["doc_id"]: doc
+        for doc in docs
+        if doc["kind"] in {"tk", "pl", "rs", "rf"}
+    }
+
+    for doc in docs:
+        dependencies: list[dict[str, Any]] = []
+        for raw_dep in doc.get("depends_on", []):
+            dep_id = resolve_dependency_id(raw_dep)
+            dep = issue_docs.get(dep_id)
+            satisfied = bool(dep and dep["state"] in {"dne", "arvd"})
+            dependencies.append(
+                {
+                    "id": dep_id,
+                    "exists": dep is not None,
+                    "state": dep["state"] if dep else "",
+                    "state_label": dep["state_label"] if dep else "",
+                    "path": dep["path"] if dep else "",
+                    "file_url": dep["file_url"] if dep else "",
+                    "satisfied": satisfied,
+                }
+            )
+
+        doc["dependencies"] = dependencies
+        if doc["kind"] in {"tk", "pl", "rs", "rf"} and doc["state"] == "tdo":
+            doc["dag_blocked"] = any(not item["satisfied"] for item in dependencies)
+            doc["ready_status"] = "dag-blocked" if doc["dag_blocked"] else "ready"
+        else:
+            doc["dag_blocked"] = False
+            doc["ready_status"] = ""
 
 
 def parse_memory_anchors(memory_file: Path) -> list[str]:
@@ -381,7 +582,7 @@ def parse_coauthors(project_root: Path) -> list[dict[str, Any]]:
 
 def collect_docs(project_root: Path) -> list[dict[str, Any]]:
     docs: list[dict[str, Any]] = []
-    for base in [project_root / "issues", project_root / "docs" / "reviews"]:
+    for base in [project_root / "issues", project_root / "docs" / "reviews", project_root / "docs" / "progress"]:
         if not base.exists():
             continue
         for path in sorted(base.rglob("*.md")):
@@ -404,9 +605,15 @@ def sort_docs(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def build_dashboard(project_root: Path) -> dict[str, Any]:
     docs = collect_docs(project_root)
+    attach_dependency_status(docs)
     anchors = defaultdict(list)
     for doc in docs:
         anchors[doc["anchor_id"]].append(doc)
+
+    progress_by_task = defaultdict(list)
+    for doc in docs:
+        if doc["kind"] == "pg":
+            progress_by_task[doc["parent_id"]].append(doc)
 
     memory_file = project_root / "refs" / "project-memory-aaak.md"
     memory_anchors = set(parse_memory_anchors(memory_file))
@@ -431,11 +638,38 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
             for sibling in sort_docs(siblings)
         ]
         doc["has_memory_anchor"] = doc["doc_id"] in memory_anchors
+        steps = sort_docs(progress_by_task.get(doc["doc_id"], [])) if doc["kind"] == "tk" else []
+        doc["progress_steps"] = [
+            {
+                "doc_id": step["doc_id"],
+                "state": step["state"],
+                "state_label": step["state_label"],
+                "title": step["title"],
+                "path": step["path"],
+                "file_url": step["file_url"],
+            }
+            for step in steps
+        ]
+        doc["progress_open_count"] = sum(1 for step in steps if step["state"] in {"tdo", "doi", "bkd"})
+        active_steps = [step for step in steps if step["state"] == "doi"] or [step for step in steps if step["state"] == "bkd"]
+        doc["active_progress"] = (
+            {
+                "doc_id": active_steps[0]["doc_id"],
+                "state": active_steps[0]["state"],
+                "state_label": active_steps[0]["state_label"],
+                "title": active_steps[0]["title"],
+                "path": active_steps[0]["path"],
+                "file_url": active_steps[0]["file_url"],
+            }
+            if active_steps
+            else None
+        )
 
     current_docs = [doc for doc in docs if not doc["archived"]]
     current_tasks = sort_docs([doc for doc in current_docs if doc["kind"] == "tk"])
     current_non_tasks = sort_docs([doc for doc in current_docs if doc["kind"] in {"pl", "rs", "rf"}])
-    review_docs = sort_docs([doc for doc in docs if doc["kind"] == "rp"])
+    review_docs = sort_docs([doc for doc in docs if doc["kind"] in {"rp", "rv"}])
+    progress_docs = sort_docs([doc for doc in docs if doc["kind"] == "pg"])
     history_tasks = sorted(
         [doc for doc in docs if doc["kind"] == "tk" and (doc["archived"] or doc["state"] in HISTORY_STATES)],
         key=lambda item: (-item["modified_epoch"], item["doc_id"]),
@@ -445,6 +679,9 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
     active_total = sum(current_counts[state] for state in ACTIVE_STATES)
     done_total = sum(current_counts[state] for state in DONE_STATES)
     cancelled_total = current_counts.get("cand", 0)
+    ready_tdo_total = sum(1 for doc in current_tasks if doc["state"] == "tdo" and not doc["dag_blocked"])
+    dag_blocked_total = sum(1 for doc in current_tasks if doc["state"] == "tdo" and doc["dag_blocked"])
+    progress_open_total = sum(1 for doc in progress_docs if doc["state"] in {"tdo", "doi", "bkd"})
     track_total = max(len(current_tasks) - cancelled_total, 1)
     completion_ratio = round(done_total / track_total, 3)
 
@@ -515,8 +752,12 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
             "metrics": {
                 "task_total": len(current_tasks),
                 "active_total": active_total,
-                "review_total": current_counts.get("rvw", 0),
+                "review_total": len(review_docs),
                 "blocked_total": current_counts.get("bkd", 0),
+                "ready_tdo_total": ready_tdo_total,
+                "dag_blocked_total": dag_blocked_total,
+                "progress_doc_total": len(progress_docs),
+                "progress_open_total": progress_open_total,
                 "done_total": done_total,
                 "cancelled_total": cancelled_total,
                 "completion_ratio": completion_ratio,
@@ -539,6 +780,7 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
             ],
             "tasks": current_tasks,
             "non_tasks": current_non_tasks,
+            "progress_docs": progress_docs,
             "memory_watch": memory_watch,
             "stale_coauthors": stale_coauthors,
             "coauthors": coauthors,
@@ -604,7 +846,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project-root", help="Project root that contains issues/")
     parser.add_argument(
         "--out-dir",
-        help="Output directory. Defaults to <project>/AIDOCS/agata-workflow-status",
+        help="Output directory. Defaults to <project>/aidocs/agata-workflow-status",
     )
     parser.add_argument("--template", help="Override the bundled HTML template")
     parser.add_argument("--no-open", action="store_true", help="Generate files without opening the browser")
@@ -615,7 +857,7 @@ def main() -> int:
     args = build_parser().parse_args()
     script_path = Path(__file__)
     project_root = find_project_root(Path(args.project_root) if args.project_root else Path.cwd())
-    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else project_root / "AIDOCS" / "agata-workflow-status"
+    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else project_root / "aidocs" / "agata-workflow-status"
 
     payload = build_dashboard(project_root)
     template = load_template(script_path, args.template)

@@ -55,6 +55,7 @@ assert_contains "$log_file" "^html: $html_file$"
 assert_contains "$log_file" "^opened: no$"
 assert_contains "$data_file" '"name": "doc-sample"'
 assert_contains "$data_file" '"doc_id": "tk0001"'
+assert_contains "$data_file" '"doc_id": "tk0001.s01-sample"'
 assert_contains "$html_file" 'Agata Progress'
 assert_contains "$html_file" '现状 Current'
 assert_contains "$html_file" '历史 History'
@@ -83,7 +84,7 @@ risk: low
 accept: html and json carry 5-digit ids
 memory: required
 links:
-    - rp10001
+    - docs/reviews/tk10001.rv001-r1-gemini.md
 ---
 EOF
 
@@ -96,12 +97,52 @@ why: same anchor should show derived relations
 scope: one plan doc
 risk: low
 accept: same anchor visible
+links:
+  - docs/reviews/pl10001.rv001-r1-codex.md
+---
+EOF
+
+write_file "$project_root/issues/tk10003.tdo.runtime.viewer-dag-node.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: tdo can be DAG-blocked without becoming cand
+scope: render dependency readiness
+risk: low
+accept: progress data exposes dag blocked count
+memory: none
+depends_on:
+  - tk10001
 links: []
 ---
 EOF
 
-write_file "$project_root/docs/reviews/rp10001.dne.runtime.review-r1-codex.md" <<'EOF'
-# tk10001 review-r1
+write_file "$project_root/docs/reviews/tk10001.rv001-r1-gemini.md" <<'EOF'
+# tk10001 rv001 r1
+EOF
+
+write_file "$project_root/docs/reviews/pl10001.rv001-r1-codex.md" <<'EOF'
+# pl10001 rv001 r1
+EOF
+
+mkdir -p "$project_root/docs/progress"
+write_file "$project_root/docs/progress/tk10001.s01-repro.dne.md" <<'EOF'
+# tk10001.s01-repro
+
+env: viewer-host:/repo@abc123
+
+## Goal
+render progress steps
+EOF
+
+write_file "$project_root/docs/progress/tk10001.s02-fix.doi.md" <<'EOF'
+# tk10001.s02-fix
+
+env: viewer-host:/repo@abc123
+
+## Goal
+show active progress
 EOF
 
 write_file "$project_root/refs/project-memory-aaak.md" <<'EOF'
@@ -144,12 +185,24 @@ data_file="$out_dir_real/progress-data.json"
 html_file="$out_dir_real/progress-view.html"
 
 assert_contains "$data_file" '"doc_id": "tk10001"'
-assert_contains "$data_file" '"doc_id": "rp10001"'
+assert_contains "$data_file" '"doc_id": "tk10003"'
+assert_contains "$data_file" '"doc_id": "tk10001.rv001-r1"'
+assert_contains "$data_file" '"doc_id": "pl10001.rv001-r1"'
+assert_contains "$data_file" '"doc_id": "tk10001.s01-repro"'
+assert_contains "$data_file" '"doc_id": "tk10001.s02-fix"'
 assert_contains "$data_file" '"anchor_id": "10001"'
+assert_contains "$data_file" '"dag_blocked_total": 1'
+assert_contains "$data_file" '"progress_doc_total": 2'
+assert_contains "$data_file" '"progress_open_total": 1'
+assert_contains "$data_file" '"progress_open_count": 1'
+assert_contains "$data_file" '"active_progress"'
+assert_contains "$data_file" '"ready_status": "dag-blocked"'
 assert_contains "$data_file" '"year": "2026"'
 assert_contains "$data_file" '"stale_coauthor_total": 1'
 assert_contains "$html_file" 'tk10001'
-assert_contains "$html_file" 'rp10001'
+assert_contains "$html_file" 'tk10001.s02-fix'
+assert_contains "$html_file" 'tk10001.rv001-r1'
+assert_contains "$html_file" 'pl10001.rv001-r1'
 assert_contains "$html_file" 'project-memory-aaak'
 
 rm -rf "$project_root" "$out_dir"

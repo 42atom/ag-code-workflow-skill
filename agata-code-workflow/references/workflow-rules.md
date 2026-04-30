@@ -14,6 +14,10 @@
 - 不让索引页承载状态真相
 - 文件名状态槽是唯一状态真相源
 - 默认单 agent 直推主链；阶段标签用于表达进度，不是审批闸门
+- 排单覆盖表只读，不承载状态；发现缺口先整理真相源，再进入实现
+- review 深度跟风险走；跨进程、持久化、状态机、生命周期、合同变更不能只靠浅层单测背书
+- 用户明确要求多 agent / 子代理时，主控 agent 可以派发实现和审阅，但主控 agent 仍是唯一裁决者
+- DAG 依赖边不进入状态槽；状态表达生命周期，依赖表达 ready 条件
 
 ## 2. 真相源
 
@@ -24,6 +28,10 @@
 规则：
 
 - 不再使用 `docs/plan/issues/` 这类历史路径
+- `docs/plan/` 只作 legacy 只读目录；不新增、不作为活跃真相、不参与 `task.sh check` 的活跃语义
+- 仍有价值的旧 `docs/plan/*` 迁到 `issues/pl...`；无继续价值的归入 `docs/archive/legacy-plan/`
+- `docs/progress/` 是 task-scoped 执行 workpad，不是第二套 issue 系统
+- `aidocs/` 只作 AI 协作暂存区，不是真相源，不参与 workflow id、状态、review、memory 判断
 - `active-mainline.md` 只做导航，不承载状态
 - 状态变更只改 `tk` 文件名，不靠正文或索引页
 - 若目标项目要偏离这条真相路径，必须有项目级 `AGENTS.md` / `CLAUDE.md` 或当前控制面真相的明确证据；零散历史文件不足以推翻共享规则
@@ -39,18 +47,30 @@ kind：
 - `tk` = task
 - `rs` = research
 - `rf` = ref
-- `rp` = report / review record
+- `rv` = issue-scoped review exchange record
+- `pg` = 只读视图里的 progress 记录；文件名前缀不用 `pg`
+- `rp` = legacy global review record; read-only compatibility for old projects
 - `pl` = plan
+
+禁止新增 `bl` kind。Backlog 不是文件类型，而是 `tk.tdo` 这一个状态切面。
 
 state：
 
 - `tdo`
 - `doi`
-- `rvw`
 - `dne`
 - `bkd`
 - `cand`
 - `arvd`
+
+语义：
+
+- `tdo` = 待办池；可包含尚未 ready 的 DAG 节点
+- `doi` = 正在执行
+- `dne` = 已完成
+- `bkd` = 已推进后被阻塞，保留冻结现场
+- `cand` = 退出活跃必做图 / 取消 / 暂不做；不是 candidate backlog
+- `arvd` = 历史归档
 
 规则：
 
@@ -58,24 +78,177 @@ state：
 - `id` 支持 4 位或 5 位数字；现有 4 位文件无需迁移
 - 同一项目内不允许裸数字碰撞；禁止 `tk0001` 与 `tk00001` 共存
 - `board` 用模块短词或场景码
-- `board` 不得使用 `tdo` / `doi` / `rvw` / `dne` / `bkd` / `cand` / `arvd` 这类状态保留词
+- `board` 不得使用 `tdo` / `doi` / `rvw` / `dne` / `bkd` / `cand` / `arvd` 这类状态保留词；`rvw` 已退休但仍保留，避免旧状态歧义
 - `slug` 只允许 `[a-z0-9-]`
 - owner / 时间 / 原因进 front matter，不进文件名
+- 文档引用必须使用稳定锚点，不引用带状态位的完整文件名
 
 ## 4. 语义映射
 
 - `pl` = 需求讨论 / spec / proposal
 - `rs` = 调研 / 事实收集 / 可行性分析
 - `tk` = 正式执行任务，等价于 issue
-- `rp` = 评审记录，等价于 PR review thread
+- `rv` = 一次性 review 交换消息，等价于 PR review thread 内的一条消息
+- `rp` = 旧式全局 review 记录；新增 review 默认不用它
 - `commit / branch` = 实现轨迹，不承载任务状态真相
+- `docs/progress/<tk-id>.sNN-<slug>.<state>.md` = 任务执行 workpad；不承载父任务状态真相
 
 规则：
 
 - 需求未收敛，先落 `pl`
 - 需要摸底验证，落 `rs`
 - 范围和验收清楚后，才创建 `tk`
-- review 讨论、阻断点、回合往返，都落 `rp`
+- review 讨论、阻断点、回合往返，都落 `rv`
+- `pl` 不是 backlog；backlog 是已收敛但未开做的 `tk.tdo`
+- 受资料启发但事实未明，先落 `rs`
+- 有方向但不适合马上执行，落 `pl` 并保持 `tdo`
+- 立刻可执行且验收清楚，落 `tk.tdo`，认领后进 `tk.doi`
+- 未来必做但依赖未满足，仍落 `tk.tdo`，用 `depends_on` 写前置；不得用 `cand` 表示 DAG 等待
+- 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/`、`docs/` 或产品资源目录
+- 子代理原始输出、失败记录、半成品回传，先放 `aidocs/agent-runs/`；只有主控 agent 裁决后，才提升到 `tk` / `rv` / memory / mainline
+- 长任务执行过程、阶段性验证、接手信息，落 `docs/progress/`；不要让它们只留在聊天转发里
+- 批量从 `pl` 拆 `tk` 前，必须先输出只读覆盖表：`计划条款 -> 承接 tk -> 状态 -> depends_on -> ready? -> 缺口`
+- 计划条款没有承接 `tk` 的，标为缺口；不得靠聊天记忆派实现
+- `tk` 只覆盖计划一部分时，必须写明剩余条款是另拆、延后，还是明确不做
+- 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/` 和相关记忆，确认不是同 scope 重复立项
+- `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
+- `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
+- 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现
+
+稳定引用规则：
+
+- issue 引用用 `tk0001` / `pl0001` / `rs0001` / `rf0001`
+- legacy review 引用用 `rp0001`
+- issue-scoped review 引用用 `tk0001.rv001-r1-codex`
+- progress 引用用 `tk0001.s01-repro`
+- 禁止在 `links` 写 `tk0001.tdo.*.md`、`tk0001.doi.*.md`、`rp0001.dne.*.md` 或 `tk0001.s01-repro.dne.md`
+- 文件名是瞬时投影；id 才是永久锚点
+- `docs/plan/` 旧链接只作为 legacy 迁移材料容忍，不作为新规则样板
+- 迁移期 `task.sh check` 默认警告状态全名链接；设置 `AGATA_STRICT_STABLE_LINKS=1` 时失败
+
+DAG 依赖写法：
+
+```yaml
+depends_on:
+  - tk0740
+  - pl0701
+ready_when:
+  - tk0740.dne
+  - pl0701.dne
+```
+
+规则：
+
+- `depends_on` 是机器可读依赖边，只放 `tk` / `pl` / `rs` / `rf` id
+- `ready_when` 是人读说明，可选，不作状态真相
+- `tdo + depends_on 未满足` = 待办池里的 DAG-blocked 节点
+- `tdo + depends_on 已满足或为空` = 可考虑派发
+- `bkd` 只给已推进后被阻塞并需冻结现场的 issue
+- `cand` 不表示“候选必做”，不表示“依赖未满足”；未来必做不用它
+
+## 4.1 Progress Workpad
+
+命名：
+
+```text
+docs/progress/tk0615.s01-repro.dne.md
+docs/progress/tk0615.s02-host-io.dne.md
+docs/progress/tk0615.s03-electron-bridge.doi.md
+```
+
+格式：
+
+```text
+<tk-id>.sNN-<slug>.<state>.md
+```
+
+状态：
+
+- `tdo`
+- `doi`
+- `dne`
+- `bkd`
+
+规则：
+
+- progress 只挂 `tk`，不挂 `pl` / `rs` / `rf`
+- progress state 是步骤状态，不是父 `tk` 状态
+- 同一 `tk` 最多一个 progress 为 `doi`
+- 父 `tk` 进入 `dne` / `cand` / `arvd` 前，所有 progress 必须为 `dne`
+- progress 文件必须放在共享控制面，不能只留在 task worktree
+- progress 可以被父 `tk.links` 以稳定锚 `tk0615.s01-repro` 引用，但是否关单仍看父 `tk`
+
+最小内容：
+
+```md
+# tk0615.s03-electron-bridge
+
+env: <host>:<abs-workdir>@<short-sha>
+
+## Goal
+一句话目标。
+
+## Done
+已完成内容。
+
+## Verify
+验证命令与结果。
+
+## Next
+下一刀或交接点。
+
+## Risk
+阻塞、疑点、未验证项。
+```
+
+收口检查放父 `tk`，不是 progress：
+
+```md
+## Completion Bar
+- [ ] progress drained
+- [ ] acceptance met
+- [ ] focused tests pass
+- [ ] typecheck/build pass
+- [ ] review blockers resolved
+- [ ] PR / inline / bot feedback swept
+- [ ] implementation drained to target mainline
+- [ ] task.sh check pass
+- [ ] worktree ready for cleanup
+```
+
+`bkd` progress 或父 `tk.bkd` 必须写 blocker brief：
+
+```md
+## Blocker
+missing:
+impact:
+tried:
+unblock_action:
+```
+
+## 4.2 主控派发闭环
+
+只在用户明确要求“派发给子代理 / 多 agent 完成 / 并行审阅”时启用。默认仍是单 agent 直推主链。
+
+主控规则：
+
+- 主控 agent 拥有最终裁决权；子代理只拥有被派发的文件、模块、验证面或审阅面
+- 派发前必须有 controlling `tk` / `pl`；禁止先让子代理实现，事后补任务真相
+- 派发内容必须写清：任务、真相源、范围、非范围、验收、验证、回传格式
+- 实现子代理只回传代码结果、验证证据、未完成项和接手说明；不直接关闭 `tk`
+- 审阅子代理只产出 `rv` 或原始审阅回传；不直接移动 controlling issue 状态
+- 阻断 review 必须由主控 agent 裁决：修复、驳回、转新 `tk`、继续复审，或请求用户决策
+- `dne` 只能由主控 agent 在代码已进 mainline、阻断 review 已处理、验证已写回、`task.sh check` 通过后执行
+
+失败接管：
+
+- 默认子代理会失败；失败不是用户转发责任
+- 子代理原始失败输出落 `aidocs/agent-runs/<issue-id>.<role>-<agent>-<timestamp>.md`
+- `aidocs/agent-runs/` 低可信，只作恢复材料，不是真相源
+- 失败回传至少写：尝试了什么、改了什么、验证了什么、失败在哪里、下一位如何接手
+- 子代理失联或输出不可用时，主控 agent 读 controlling issue、git diff、worktree 状态和 `aidocs/agent-runs/` 后直接接手或缩小范围重派
+- 同一失败不允许无限重试；一次恢复周期后，主控 agent 必须接手、重派更小 scope，或把 controlling issue 标 `bkd` 并写明阻断
+- 只有主控 agent 提升后的内容才进入 `tk` / `rv` / memory / mainline
 
 ## 5. 协作者名录
 
@@ -115,7 +288,8 @@ handle,owner,engine,role,status,updated_at,note
 - 它是历史入口，不是任务状态真相
 - 与当前状态冲突时，以 `issues/` 与证据链为准
 - 只记里程碑、关键决策、流程迁移、冻结节点、关键阻断
-- 不记逐条流水账，不替代 `tk` / `rp`
+- 不记逐条流水账，不替代 `tk` / `rv`
+- 稳定的架构审查判断、冻结点、反复出现的风险规则，应在对后续对话仍有价值时写入 memory
 
 最小 front matter 扩展：
 
@@ -137,7 +311,7 @@ handle,owner,engine,role,status,updated_at,note
 
 任务主流状态：
 
-`tdo -> doi -> rvw -> dne`
+`tdo -> doi -> dne`
 
 补充：
 
@@ -148,52 +322,63 @@ handle,owner,engine,role,status,updated_at,note
 任务与评审分工：
 
 - `tk` 负责状态推进
-- `rp` 负责评审证据
-- `rp` 不替代 `tk`
-- `tk.links` 必须挂相关 `rp`
-- `tk.links` 可挂具体 `rp` 文件，也可挂稳定 `rpNNNN` / `rpNNNNN` 锚点
-- 默认优先挂稳定 `rp` 锚点，避免把 `rp` 的 state 槽写死进链接
+- `rv` 负责评审交换证据
+- `rv` 不替代 `tk`
+- 新增 review 默认使用 `docs/reviews/<issue-id>.rvMMM-rN-author.md`
+- 旧 `rpNNNN` 只作历史兼容；不再作为新增 review 主线
 - review 结论要回写到 `tk`
+- review 是 `rv` 证据链，不是 `tk` 状态；`tk` 保持在 `doi` 直到 owner 修完阻断并关闭
+- review 按风险排深度；跨进程通信、持久化、状态机、生命周期、合同变更优先深审，纯投影或纯 UI 可轻审
+- review 必须主动搜索重复路径：同一 `id` / `ref` / `result` / `status` / owner / 恢复链 / prompt surface / UI-debug surface 是否被两条路径同时生产或消费
+- 发现双写、双读、双 surface 时默认阻断；除非 controlling `tk` 或 `pl` 明确写清唯一 owner 与旧路径退出计划
 
 review 命名规则：
 
-- 评审文档必须 task-first
+- 评审文档必须 parent-first
 - 禁止 `re.` / `re.re.` 链式命名
-- 必须显式写轮次 `rN`
-- `rp` 一经成文默认冻结，优先直接用 `dne`
-- 新回合新增新文件，不回头改旧 `rp` 的状态槽
+- 新增 review 文件统一格式：`<issue-id>.rvMMM-rN-author.md`
+- `<issue-id>` 是父 `tk` / `pl` / `rs` / `rf`；`rvMMM` 是同一问题线；`rN` 是该问题线内的第 N 次交换；`author` 是写入者
+- 一次发言一份文件；同一问题线继续同一个 `rvMMM`，新问题线才开新的 `rvMMM`
+- `rv` 一经成文默认冻结；新回合新增新文件，不回头改旧 `rv`
+- 旧 `rpNNNN.state.board.review-rN-author.md` / `reply-rN-author.md` 文件可读可查，但新增不再使用
 
 审核隔离规则：
 
 - 审核时允许使用 `git worktree` 拉出独立工作目录，避免和实现中的工作区互相打架
-- `worktree` 只是隔离执行环境，不是第二套任务真相源；状态、结论、往返记录仍回写 `tk` / `rp`
+- `worktree` 只是隔离执行环境，不是第二套任务真相源；状态、结论、往返记录仍回写 `tk` / `rv`
 - 若该审核工作树对应的源码、锁文件或配置与主工作区不同，依赖安装、生成物和验证动作必须跟随该 `worktree`
 - 不允许拿 A 工作树的依赖结果去替 B 工作树背书
 
 工作树语义规则：
 
 - 一个活跃 task 默认对应一个专属 worktree
-- 主 checkout 是共享控制面；`issues/`、`docs/reviews/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的真相改动都在这里发生
+- 主 checkout 是共享控制面；`issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的真相改动都在这里发生
 - linked worktree 里的这些 truth path 只是该分支镜像，不是权威真相视图
 - linked task worktree 若需要写验证记录、review 草稿或实现笔记，先写在非真相路径；不得直接改上述真相路径里的正式文件
-- `tdo -> doi`、`doi -> rvw|bkd|cand|dne`、`rp` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
+- `tdo -> doi`、`doi -> bkd|cand|dne`、`rv` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
 - 创建 `task/tkNNNN-*` 分支或对应 task worktree 前，`issues/` 里必须已存在同号 controlling `tk`；禁止先实现后补真相
 - 创建 review 分支或 review worktree 前，必须已存在同号 controlling `tk` 与目标 review 轮次真相
+- 分支名表达工作流角色，不表达执行者身份；默认用 `task/tkNNNN-<slug>`、`review/tkNNNN-<slug>`、`salvage/<name>`、`release/<version>`，项目级规则可收窄但不应退回 agent 身份命名
+- task / review / salvage worktree 默认放在仓库目录外部的项目级 worktree 根下；禁止放进被编辑仓库内部，也不要平铺在仓库同级制造混乱
 - `doi` 落盘后，才在该 task 的专属 worktree 中推进实现
 - task worktree 只做代码、测试、生成物和临时草稿，不偷偷改 workflow 状态槽，不把自己当第二控制面
-- `task.sh ls` / `find` / `show` / `new` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
+- `task.sh ls` / `find` / `show` / `new` / `review` / `progress` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
 - `task.sh check` 例外：只有“当前 worktree 有没有 truth 污染”这一刀留在本地；重复 id、review 约束、memory、staleness 等全局语义仍由共享控制面裁决
 - `task.sh check` 通过只说明工作流语义合法，不说明当前共享控制面上的所有脏改都属于你
+- 状态槽迁移默认走 `task.sh move`；只有 helper 明确表达不了合法 rename 时，才允许手动改同一文件的状态槽
+- 手动状态槽 rename 后必须立刻跑 `task.sh check`，并在回传里说明这是 helper gap，不把手动路径常态化
+- helper 保持薄，不自动暂存 Git index；Git rename 血统用于诊断，不是工作流真相
 - 同一 task line 的控制面写操作必须串行；不得对同一 task 预发多个 `move`，每次状态落盘后都要重读真相与 gate，再决定下一跳
 - `task.sh orphan-scan` 例外：它既看当前 worktree 的 truth 漂移，也看共享 refs 的差异
 - 单任务 worktree 在执行中可以是脏的，这是正常态
-- 进入 `rvw`、准备合并或 `prune` 前，必须相对目标 `base-ref` 检查真相漂移与执行差异；明显过期的 worktree 先对齐，再继续推进
+- 进入 `dne`、准备合并或 `prune` 前，必须相对目标 `base-ref` 检查真相漂移与执行差异；明显过期的 worktree 先对齐，再继续推进
 - 同一 worktree 出现多个 task 的实现改动，或出现当前 task 之外的无关修改 / 未跟踪文件，视为污染
 - 切任务 = 切 worktree，不继续复用当前脏树
 - 平行 task worktree 默认双盲；一个 task worktree 不得直接依赖另一个 task worktree 的未落地代码、生成物、本地服务端口或数据库状态
 - 跨 task 交付、协作或 review 邀请，必须先落成控制面可见的共享证据，再由接收方消费；禁止通过跨目录读取另一个 task worktree 走私中间态
-- `rvw` / 复审可在独立 review worktree 中做验证，但 `tk` / `rp` 结论仍回主 checkout 落盘
+- 复审可在独立 review worktree 中做验证，但 `tk` / `rv` 结论仍回主 checkout 落盘
 - 代码任务收口顺序固定：专属 worktree 完成实现与验证 -> 代码并回目标主线 -> 主单推进到 `dne` -> 清理该任务的 worktree 与本地分支
+- `dne` 不表示“代码仍留在 task worktree”；若实现尚未并回目标主线，禁止关单后直接删树
 - 同一 task 续做时复用原 worktree
 - 任务进入 `dne` / `cand` / `arvd` 且已收口后，应移除对应 worktree；`bkd` 可保留 worktree 但冻结，不得混入别的 task
 - worktree 收尾是控制面对执行面的最后一次对账，不是顺手删目录
@@ -201,6 +386,8 @@ review 命名规则：
 - `prune` 只接受 `dne` / `cand` / `arvd`；`doi` 必须先释放，`bkd` 默认保留冻结现场
 - `prune` 前必须满足：主 checkout 的 `task.sh check` 通过、`task.sh orphan-scan <base-ref> <task-id>` 无漂移、目标 linked worktree 干净、且相对 `base-ref` 已无执行差异
 - 禁止在“旧进程 + 新代码”混合运行态上给出验证结论；必须先退出旧进程，再在新构建/新运行态上验证
+- 跨进程通信、IPC、BroadcastChannel、SharedArrayBuffer、持久化、状态机、生命周期、replay、debug 和合同任务，必须在真实运行边界上提供 smoke / integration 证据；单进程单测不能作为唯一验证
+- UI 反馈只表达阶段状态，不反推生命周期真相；完成与失败仍以 controlling task、ledger 或项目定义的唯一真相源为准
 - `prune` 不得从目标 worktree 自己内部执行；若当前 shell cwd 落在待删 worktree 内，必须先 `cd` 出去
 - `prune` 成功时同时回收 linked worktree 和对应本地 branch；默认不碰 remote branch
 - worktree 只是执行空间，不是任务真相源
@@ -208,12 +395,14 @@ review 命名规则：
 共享真相可达性规则：
 
 - `pl` 与任何 `tdo` 态文档属于共享待排期真相，不允许只存在于临时 task worktree / snapshot branch
-- 共享控制面上，`issues/`、`docs/reviews/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rp` 文件，默认视为外来活动线，不叫“噪声”
+- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
 - 判断外来活动线时，先看 task id、state、`claimed_at`、`claimed_by`、`claimed_thread_id`、links、相邻 review / memory 锚点，以及 `coauthors.csv`；没有证据前，不得擅自当成废稿或顺手并入当前提交
 - 未经明确接管，不得删除、改名、暂存或提交外来活动线；当前提交只收自己的真相改动，别线单独报告
-- 若某个 task worktree 中出现了只在本地可见的 `doi` / `rvw` / `rp` / memory 改动，视为控制面漂移；必须先收回主 checkout，再继续执行
-- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
-- 若项目记忆、review 或 git 历史提到某个 `tk` / `pl` / `rs` / `rf` / `rp`，但当前真相源找不到，先跑 `task.sh orphan-scan <base-ref> <id>`，再用 `git log --all` / `git grep` 追溯；禁止直接假定它不存在
+- 若某个 task worktree 中出现了只在本地可见的 `doi` / `rv` / memory 改动，视为控制面漂移；必须先收回主 checkout，再继续执行
+- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
+- 若项目记忆、review、progress 或 git 历史提到某个 `tk` / `pl` / `rs` / `rf` / `rv`，但当前真相源找不到，先跑 `task.sh orphan-scan <base-ref> <id>`，再用 `git log --all` / `git grep` 追溯；禁止直接假定它不存在
+- 任何 `tkNNNN-*` 测试文件命名前，必须确认 `issues/` 中已有同号 controlling `tk`
+- 若测试只是服务已有主单的 source-lock、回归或结构断言，不得新占一个 task id；复用 owner task 号或使用非 task-id 命名
 
 工作树状态判断：
 
@@ -223,19 +412,19 @@ review 命名规则：
 
 例子：
 
-- `rp0061.dne.runtime.review-r1-codex.md`
-- `rp0061.dne.runtime.reply-r1-mobile007kx.md`
-- `rp0061.dne.runtime.review-r2-codex.md`
+- `tk0061.rv001-r1-codex.md`
+- `tk0061.rv001-r2-mobile007kx.md`
+- `tk0061.rv001-r3-codex.md`
 
-## 8. rvw 入场门槛
+## 8. dne 关闭门槛
 
-代码任务进入 `rvw` 前，至少要有：
+代码任务进入 `dne` 前，至少要有：
 
 - `accept`
-- `code_version`
 - `verify`
+- `code_version`
 
-没有这三项，不算真正进入 review。
+没有这些证据，不算真正关闭。
 
 补充：
 
@@ -243,7 +432,11 @@ review 命名规则：
 - `verify` 是验证口径或命令，不是“已测试”这类空话
 - `verify` 可写成多行块，比如 `verify: |`
 - `links` 可写成 inline 数组，也可写成缩进列表
-- `rvw` 任务至少要挂一个有效 `rp` 证据链接
+- 如果发生 review，任务至少要有同父任务前缀的 `rv` 证据文件，或挂接 legacy `rp` 证据链接
+- 所有关联 `rv` / legacy `rp` 的阻断意见必须已回复或由 controlling owner 明确裁决
+- 如果存在 `docs/progress/<tk-id>.*`，所有 progress 必须已 drain 到 `dne`
+- 如果存在 PR、inline review 或 bot feedback，关闭前必须 sweep，并在父 `tk` 里写明处理结果
+- 如果任务涉及跨进程、持久化、状态机、生命周期或合同变更，`verify` 必须写明真实运行边界的 smoke / integration 命令或证据位置
 
 ## 8.1 归档残留
 
@@ -261,7 +454,7 @@ commit：
 
 branch：
 
-`{state}/{tkNNNN}-{slug}` 或 `{state}/{tkNNNNN}-{slug}`
+`task/tkNNNN-<slug>` / `review/tkNNNN-<slug>` / `salvage/<name>` / `release/<version>`
 
 action：
 
@@ -281,15 +474,21 @@ action：
 - 有 task 就必须带 `[tkNNNN]` 或 `[tkNNNNN]`
 - `board` 必须和任务文件第三槽一致
 - 需要验收时在 commit body 追加 `Reviewed-by`
+- 任务分支不使用 agent 身份命名；执行者写入 front matter、claim 字段或 review 记录，不写进长期分支语义
+- 版本号只用于 `release/*`，不塞进长期开发分支或日常任务分支
 
 ## 9.1 发号与认领保活
 
 规则：
 
-- 新建 `tk` / `pl` / `rs` / `rf` / `rp` 时，优先走 `task.sh new`，由共享控制面统一分配下一个可用 id
+- 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面统一分配下一个可用 id
+- 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rN-author>`，不走全局发号
+- 新建 progress 时走 `task.sh progress <task-id> <sNN-slug> [state]`
+- `task.sh new` / `task.sh review` / `task.sh progress` 前必须先读相关 `pl` / `rs` / `tk` / `rv` / progress 真相源，确认当前 scope 没有被已有任务覆盖
 - 不手工在并发 shell 里做 `max(id)+1` 发号
+- `task.sh move <id> <state>` 支持 `tkNNNN` / `plNNNN` / `rsNNNN` / `rfNNNN`，裸数字仍默认 `tkNNNN`
 - `task.sh move <id> doi` 会写入 `claimed_at`、`claimed_by`，以及当前 runtime 能提供时的 `claimed_thread_id`
-- `move` 是单步控制面动作，不是流水线；尤其 `rvw` / `dne` / `arvd` 这类带 gate 的状态，必须等上一步成功落盘并重读真相后再推进
+- `move` 是单步控制面动作，不是流水线；尤其 `dne` / `arvd` 这类带 gate 的状态，必须等上一步成功落盘并重读真相后再推进
 - `task.sh check` 对缺失 `claimed_at` 或长时间未推进的 `doi` 发警告，不自动回滚、不新增旁路锁文件
 - 当多个 agent 共享同一个引擎名（例如都叫 `codex`）时，`claimed_thread_id` 是主识别信号；`claimed_by` 只保留粗粒度身份
 - `doi` 超时只触发接管检查，不触发自动回滚；接手前必须检查现场、跑 `task.sh orphan-scan <base-ref> <task-id>`，并在控制面显式改状态或交接
@@ -331,13 +530,13 @@ action：
 
 - `[本轮完成，下一阶段：实现-tk0061]`
 - `[本轮完成，下一阶段：审阅-tk0061]`
-- `[本轮完成，下一阶段：修复-rp0061]`
+- `[本轮完成，下一阶段：修复-tk0061.rv001]`
 - `[本轮完成，下一阶段：提交-tk0061]`
 - `[本轮完成，下一阶段：推送-tk0061]`
 - `[本轮完成，下一阶段：需用户决策-支付降级方案]`
 - `[本轮已完成(tk0061)，阶段结束]`
 - `tk0061 已收口到 dne。task.sh find tk0061：只指向 dne；task.sh check：ok；task.sh prune tk0061 <base-ref>：ok，仅回收 tk0061 绑定的 worktree 与本地分支。根仓仍有外来活动线，未纳入本次提交。`
-- `全场快速扫视：控制面另有 tk0138.doi、pl0046.rvw；执行面仍有 2 个外来 worktree，均未接管。`
+- `全场快速扫视：控制面另有 tk0138.doi、pl0046.tdo；执行面仍有 2 个外来 worktree，均未接管。`
 
 ## 11. 单任务示例
 
@@ -350,9 +549,13 @@ issues/
   tk0061.doi.runtime.daily-production-stats-log.p1.md
 
 docs/reviews/
-  rp0061.dne.runtime.review-r1-codex.md
-  rp0061.dne.runtime.reply-r1-mobile007kx.md
-  rp0061.dne.runtime.review-r2-codex.md
+  tk0061.rv001-r1-codex.md
+  tk0061.rv001-r2-mobile007kx.md
+  tk0061.rv001-r3-codex.md
+
+docs/progress/
+  tk0061.s01-repro.dne.md
+  tk0061.s02-fix.doi.md
 
 refs/
   project-memory-aaak.md
@@ -365,8 +568,9 @@ docs/
 
 1. 建任务：`tk0061.tdo...`
 2. 开做：`tk0061.doi...`
-3. 首轮评审：新增 `rp0061.dne.runtime.review-r1-codex.md`
-4. 回复评审：新增 `rp0061.dne.runtime.reply-r1-mobile007kx.md`
-5. 二轮评审：新增 `rp0061.dne.runtime.review-r2-codex.md`
-6. 进入 review：任务文件改名 `tk0061.rvw...`
-7. 人工关闭：任务文件改名 `tk0061.dne...`
+3. 长任务过程：按需新增 `docs/progress/tk0061.sNN-*.state.md`
+4. 首轮评审：新增 `tk0061.rv001-r1-codex.md`
+5. 回复评审：新增 `tk0061.rv001-r2-mobile007kx.md`
+6. 二轮评审：新增 `tk0061.rv001-r3-codex.md`
+7. 修复或回复 review：新增后续 `rv` 或 `progress`，任务仍保持 `tk0061.doi...`
+8. 人工关闭：progress 全部 `dne`，任务文件改名 `tk0061.dne...`

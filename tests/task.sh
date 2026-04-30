@@ -176,88 +176,258 @@ assert_contains "$task_stderr" "archived task residue detected" "check should ex
 
 rm -rf "$project_root"
 
-######## rvw tasks should reject empty verify
+######## legacy docs/plan should not be an active check target
 
 project_root="$(make_project)"
-write_file "$project_root/issues/tk10002.rvw.runtime.empty-verify.p1.md" <<'EOF'
+mkdir -p "$project_root/docs/plan"
+write_file "$project_root/refs/task-check-banned-terms.tsv" <<'EOF'
+forbidden-shim
+EOF
+write_file "$project_root/docs/plan/pl0001.rvw.repo.legacy-plan.md" <<'EOF'
+# Legacy Plan
+
+This retired docs/plan file mentions forbidden-shim but must not affect active checks.
+EOF
+write_file "$project_root/issues/tk10030.tdo.runtime.clean-active-target.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
 reviewer: user
-why: rvw guard should reject empty verify
-scope: guard verify
+why: active issues remain the banned-term target
+scope: prove docs plan is legacy-only
 risk: low
-accept: reject empty verify
-code_version: abc123
-verify:
-links:
-  - docs/reviews/rp10002.dne.runtime.review-r1-codex.md
----
-EOF
-write_file "$project_root/docs/reviews/rp10002.dne.runtime.review-r1-codex.md" <<'EOF'
-# tk10002 review-r1
-EOF
-
-run_task "$project_root" check
-assert_eq "$task_status" "1" "check should fail on empty verify"
-assert_contains "$task_stderr" "empty verify" "check should explain empty verify failure"
-
-rm -rf "$project_root"
-
-######## rvw tasks should require linked rp evidence
-
-project_root="$(make_project)"
-write_file "$project_root/issues/tk0003.rvw.runtime.missing-rp-link.p1.md" <<'EOF'
----
-owner: user
-assignee: codex
-reviewer: user
-why: rvw guard should require rp evidence
-scope: guard evidence link
-risk: low
-accept: reject rvw without rp link
-code_version: abc123
-verify: bash verify.sh
+accept: check ignores legacy docs plan
+memory: none
 links: []
 ---
 EOF
 
 run_task "$project_root" check
-assert_eq "$task_status" "1" "check should fail when rvw task has no rp link"
-assert_contains "$task_stderr" "rvw task missing rp link" "check should explain missing rp evidence"
+assert_eq "$task_status" "0" "check should ignore legacy docs/plan for active banned terms"
+assert_eq "$task_stdout" "ok" "legacy docs/plan should not trip active checks"
 
-rm -rf "$project_root"
-
-######## rvw tasks should accept bare rp anchors, 4-space links, and block verify
-
-project_root="$(make_project)"
-write_file "$project_root/issues/tk10006.rvw.runtime.stable-rp-anchor.p1.md" <<'EOF'
+write_file "$project_root/issues/tk10031.tdo.runtime.banned-active-target.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
 reviewer: user
-why: rvw should accept stable rp anchors and multiline verify commands
-scope: parse valid yaml-like frontmatter more robustly
+why: forbidden-shim in active issue should still fail
+scope: prove active issue remains checked
 risk: low
-accept: helper accepts stable rp anchor links
-code_version: abc123
-verify: |
-  bash verify.sh
-  pytest tests/task.sh
-links:
-    - rp10006
+accept: active issue fails banned-term check
+memory: none
+links: []
 ---
-EOF
-write_file "$project_root/docs/reviews/rp10006.dne.runtime.review-r1-codex.md" <<'EOF'
-# tk10006 review-r1
-EOF
-write_file "$project_root/docs/reviews/rp10006.dne.runtime.reply-r1-mobile007kx.md" <<'EOF'
-# tk10006 reply-r1
 EOF
 
 run_task "$project_root" check
-assert_eq "$task_status" "0" "check should accept bare rp anchors and block verify"
-assert_eq "$task_stdout" "ok" "successful stable rp anchor check should print ok"
+assert_eq "$task_status" "1" "check should still scan active issue files for banned terms"
+assert_contains "$task_stderr" "banned architecture term" "check should report active banned terms"
+
+rm -rf "$project_root"
+
+######## progress workpad command and validation
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10040.tdo.runtime.progress-parent.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: progress files should hang off a parent task
+scope: validate docs/progress helper
+risk: low
+accept: progress helper creates a task-scoped workpad
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" progress tk10040 s01-repro
+assert_eq "$task_status" "0" "progress command should create a default tdo step"
+assert_eq "$task_stdout" "$project_root/docs/progress/tk10040.s01-repro.tdo.md" "progress path should be task-scoped"
+assert_contains "$(cat "$task_stdout")" "env:" "progress file should include env stamp"
+
+run_task "$project_root" find tk10040.s01-repro
+assert_eq "$task_status" "0" "find should locate progress by stable step id"
+assert_eq "$task_stdout" "$project_root/docs/progress/tk10040.s01-repro.tdo.md" "find should return current progress path"
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept valid progress file"
+assert_eq "$task_stdout" "ok" "valid progress file should pass"
+
+run_task "$project_root" move tk10040 doi
+assert_eq "$task_status" "0" "move to doi should still work with open progress"
+run_task "$project_root" move tk10040 dne
+assert_eq "$task_status" "1" "move to dne should reject open progress"
+assert_contains "$task_stderr" "open progress must be drained" "move should explain open progress gate"
+
+mv "$project_root/docs/progress/tk10040.s01-repro.tdo.md" "$project_root/docs/progress/tk10040.s01-repro.doi.md"
+write_file "$project_root/docs/progress/tk10040.s02-fix.doi.md" <<'EOF'
+# tk10040.s02-fix
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should reject multiple doi progress steps"
+assert_contains "$task_stderr" "multiple doi progress steps" "check should explain multiple doi progress"
+
+rm -rf "$project_root"
+
+######## closed tasks cannot keep open progress
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10041.dne.runtime.closed-parent.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: closed parent cannot keep open progress
+scope: validate progress drain rule
+risk: low
+accept: open progress under dne parent fails
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" progress tk10041 s01-late
+assert_eq "$task_status" "1" "progress command should reject open progress for closed parent"
+assert_contains "$task_stderr" "closed task cannot start open progress" "progress should explain closed parent"
+
+write_file "$project_root/docs/progress/tk10041.s01-late.tdo.md" <<'EOF'
+# tk10041.s01-late
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should reject stranded open progress under closed parent"
+assert_contains "$task_stderr" "closed task has open progress" "check should explain stranded progress"
+
+rm -rf "$project_root"
+
+######## aidocs should be staging, not workflow truth
+
+project_root="$(make_git_project)"
+mkdir -p "$project_root/aidocs/inbox" "$project_root/aidocs/design" "$project_root/aidocs/agent-runs"
+write_file "$project_root/refs/task-check-banned-terms.tsv" <<'EOF'
+forbidden-shim
+EOF
+write_file "$project_root/aidocs/inbox/tk9999.rvw.runtime.raw-drop.p1.md" <<'EOF'
+# Raw Drop
+
+This filename looks like workflow truth and mentions forbidden-shim, but aidocs is staging.
+EOF
+write_file "$project_root/aidocs/design/pl9999.tdo.visual.reference.md" <<'EOF'
+# Design Reference
+
+This is a raw design note, not a workflow plan.
+EOF
+write_file "$project_root/aidocs/agent-runs/tk9999.impl-codex-20260430T1030Z.md" <<'EOF'
+# Failed Sub-Agent Run
+
+This mentions tk9999.rvw and forbidden-shim, but remains low-trust staging.
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should ignore aidocs staging files"
+assert_eq "$task_stdout" "ok" "aidocs staging should not trip active checks"
+
+run_task "$project_root" orphan-scan main
+assert_eq "$task_status" "0" "orphan-scan should ignore untracked aidocs files"
+assert_eq "$task_stdout" "ok" "aidocs staging should not be reported as truth drift"
+
+rm -rf "$project_root"
+
+######## rvw state residue should fail check
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10002.rvw.runtime.retired-state.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: rvw is retired as a task state
+scope: reject retired state residue
+risk: low
+accept: check rejects rvw residue
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should fail on retired rvw state"
+assert_contains "$task_stderr" "rvw state is retired" "check should explain retired rvw state"
+
+rm -rf "$project_root"
+
+######## move should reject new rvw targets
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk0003.doi.runtime.no-rvw-target.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: rvw must no longer be a legal target state
+scope: reject new moves into rvw
+risk: low
+accept: move rvw fails
+memory: none
+claimed_at: 2026-04-16T00:00:00Z
+claimed_by: codex
+links: []
+---
+EOF
+
+run_task "$project_root" move 0003 rvw
+assert_eq "$task_status" "1" "move should reject rvw as a new target"
+assert_contains "$task_stderr" "invalid state: rvw" "move should explain invalid rvw target"
+
+rm -rf "$project_root"
+
+######## legacy rvw tasks should be movable out for migration
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10006.rvw.runtime.legacy-review.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: old projects need a direct escape from retired rvw
+scope: migrate old rvw tasks back to doi
+risk: low
+accept: move rvw to doi succeeds
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" move 10006 doi
+assert_eq "$task_status" "0" "move should allow legacy rvw tasks to leave rvw"
+assert_eq "$task_stdout" "$project_root/issues/tk10006.doi.runtime.legacy-review.p1.md" "legacy rvw should migrate to doi"
+
+rm -rf "$project_root"
+
+######## legacy rvw plans should be movable out for migration
+
+project_root="$(make_project)"
+write_file "$project_root/issues/pl10006.rvw.model.legacy-plan-review.p2.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: old projects may have non-task docs stranded in retired rvw
+scope: migrate old rvw plans to a legal terminal state
+risk: low
+accept: move pl rvw to dne succeeds
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" move pl10006 dne
+assert_eq "$task_status" "0" "move should allow legacy rvw plans to leave rvw"
+assert_eq "$task_stdout" "$project_root/issues/pl10006.dne.model.legacy-plan-review.p2.md" "legacy rvw plan should migrate to dne"
 
 rm -rf "$project_root"
 
@@ -345,19 +515,19 @@ rm -rf "$project_root"
 ######## five-digit tk and rp ids should pass end-to-end
 
 project_root="$(make_project)"
-write_file "$project_root/issues/tk10005.rvw.runtime.five-digit-pass.p1.md" <<'EOF'
+write_file "$project_root/issues/tk10005.tdo.runtime.five-digit-pass.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
 reviewer: user
-why: 5-digit ids should work across rvw validation and review lookup
+why: 5-digit ids should work across task and review lookup
 scope: prove 5-digit task and review ids
 risk: low
 accept: 5-digit ids pass helper validation
 code_version: abc123
 verify: bash verify.sh
 links:
-  - docs/reviews/rp10005.dne.runtime.review-r1-codex.md
+  - rp10005
 ---
 EOF
 write_file "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-codex.md" <<'EOF'
@@ -365,16 +535,219 @@ write_file "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-codex.md" <
 EOF
 
 run_task "$project_root" check
-assert_eq "$task_status" "0" "check should accept valid 5-digit rvw tasks"
+assert_eq "$task_status" "0" "check should accept valid 5-digit task and review ids"
 assert_eq "$task_stdout" "ok" "successful 5-digit check should print ok"
 
 run_task "$project_root" show 10005
 assert_eq "$task_status" "0" "show should accept raw 5-digit task ids"
-assert_eq "$task_stdout" "$project_root/issues/tk10005.rvw.runtime.five-digit-pass.p1.md" "show should resolve 5-digit task ids"
+assert_eq "$task_stdout" "$project_root/issues/tk10005.tdo.runtime.five-digit-pass.p1.md" "show should resolve 5-digit task ids"
 
 run_task "$project_root" find rp10005
 assert_eq "$task_status" "0" "find should locate 5-digit review ids"
 assert_eq "$task_stdout" "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-codex.md" "find should resolve 5-digit review ids"
+
+rm -rf "$project_root"
+
+######## legacy rp review anchors under issues should still resolve
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10018.tdo.runtime.legacy-rp-review-anchor.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: legacy repos may still carry rp review docs under issues
+scope: keep stable rp anchors valid during migration
+risk: low
+accept: check accepts rp anchors that resolve under issues
+memory: none
+links:
+  - rp10018
+---
+EOF
+write_file "$project_root/issues/rp10018.dne.runtime.review-r1-codex.md" <<'EOF'
+# legacy rp review
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept legacy rp review anchors under issues"
+assert_eq "$task_stdout" "ok" "legacy rp anchor should not block check"
+
+rm -rf "$project_root"
+
+######## stateful workflow link targets should fail
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10016.tdo.runtime.stateful-link-source.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: links must use stable id anchors
+scope: reject stateful filenames in links
+risk: low
+accept: check fails on stateful workflow link targets
+memory: none
+links:
+  - issues/tk10017.tdo.runtime.stateful-link-target.p1.md
+---
+EOF
+write_file "$project_root/issues/tk10017.tdo.runtime.stateful-link-target.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: stateful link target fixture
+scope: provide a file that should not be linked by full name
+risk: low
+accept: stable id is the only allowed anchor
+memory: none
+links: []
+---
+EOF
+
+AGATA_STRICT_STABLE_LINKS=1 run_task "$project_root" check
+assert_eq "$task_status" "1" "check should reject stateful workflow link targets"
+assert_contains "$task_stderr" "stateful workflow links are forbidden" "check should explain stable id anchor rule"
+
+rm -rf "$project_root"
+
+######## issue-scoped rv review docs should be created and validated
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10009.doi.runtime.issue-scoped-review.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: review messages should encode parent issue and thread in the filename
+scope: create one issue-scoped rv message
+risk: low
+accept: review command creates docs/reviews/tk10009.rv001-r1-gemini.md
+memory: none
+claimed_at: 2026-04-16T00:00:00Z
+claimed_by: codex
+links:
+  - docs/reviews/tk10009.rv001-r1-gemini.md
+---
+EOF
+
+run_task "$project_root" review tk10009 rv001 r1-gemini
+assert_eq "$task_status" "0" "review command should create issue-scoped rv docs"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r1-gemini.md" "review command should encode task, thread, round, and author"
+[[ -f "$task_stdout" ]] || fail "review command should create the rv file"
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept valid issue-scoped rv docs"
+assert_eq "$task_stdout" "ok" "valid rv check should print ok"
+
+run_task "$project_root" find tk10009.rv001-r1-gemini
+assert_eq "$task_status" "0" "find should locate issue-scoped rv docs by full review id"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r1-gemini.md" "find should resolve full issue-scoped rv ids"
+
+write_file "$project_root/issues/pl10010.doi.runtime.plan-review.p2.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: plans also need pre-implementation review evidence
+scope: create one plan-scoped rv message
+risk: low
+accept: review command creates docs/reviews/pl10010.rv001-r1-opus.md
+memory: none
+links:
+  - docs/reviews/pl10010.rv001-r1-opus.md
+---
+EOF
+
+run_task "$project_root" review pl10010 rv001 r1-opus
+assert_eq "$task_status" "0" "review command should support non-task issue parents"
+assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r1-opus.md" "review command should encode plan parent, thread, round, and author"
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept valid plan-scoped rv docs"
+
+run_task "$project_root" review tk10009 rv1 r2-gpt
+assert_eq "$task_status" "1" "review command should reject non-padded thread ids"
+assert_contains "$task_stderr" "review thread must look like rv001" "review should explain thread shape"
+
+rm -rf "$project_root"
+
+######## issue-scoped rv docs should require an existing parent issue
+
+project_root="$(make_project)"
+write_file "$project_root/docs/reviews/tk10010.rv001-r1-gemini.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: orphan review docs should fail loudly
+scope: reject rv docs without parent issue
+risk: low
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should fail on orphan issue-scoped rv docs"
+assert_contains "$task_stderr" "issue file not found for tk10010" "check should explain missing parent issue"
+
+rm -rf "$project_root"
+
+######## depends_on should validate issue DAG edges without new states
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10013.dne.runtime.completed-prereq.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: completed prerequisite
+scope: dependency target
+risk: low
+accept: dependency exists
+memory: none
+links: []
+---
+EOF
+write_file "$project_root/issues/tk10014.tdo.runtime.waiting-on-prereq.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: required future work can wait in tdo
+scope: dependency source
+risk: low
+accept: depends_on validates existing issue ids
+memory: none
+depends_on:
+  - tk10013
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept valid depends_on issue ids"
+assert_eq "$task_stdout" "ok" "valid dependency check should print ok"
+
+write_file "$project_root/issues/tk10015.tdo.runtime.missing-prereq.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: missing DAG target should fail loudly
+scope: dependency source
+risk: low
+accept: missing depends_on target fails
+memory: none
+depends_on: [tk19999]
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should fail on missing depends_on targets"
+assert_contains "$task_stderr" "issue file not found for tk19999" "check should explain missing dependency target"
 
 rm -rf "$project_root"
 
@@ -398,15 +771,30 @@ rm -rf "$project_root"
 
 project_root="$(make_git_project)"
 
+mkdir "$project_root/.agata-new-id.lock"
+run_task "$project_root" new tk runtime locked-attempt p1
+assert_eq "$task_status" "1" "new should fail while the id allocation lock exists"
+assert_contains "$task_stderr" "new id allocation is busy" "new should explain id allocation lock contention"
+rmdir "$project_root/.agata-new-id.lock"
+
 run_task "$project_root" new tk runtime sample-created p1
 assert_eq "$task_status" "0" "new tk should succeed in shared root checkout"
 assert_eq "$task_stdout" "$project_root/issues/tk0001.tdo.runtime.sample-created.p1.md" "new tk should allocate first 4-digit id"
 [[ -f "$task_stdout" ]] || fail "new tk should create the file"
 grep -q "memory: none" "$task_stdout" || fail "new tk should include default memory mode"
+[[ ! -d "$project_root/.agata-new-id.lock" ]] || fail "new should release the id allocation lock"
 
 run_task "$project_root" new pl product sample-plan
 assert_eq "$task_status" "0" "new pl should succeed in shared root checkout"
 assert_eq "$task_stdout" "$project_root/issues/pl0002.tdo.product.sample-plan.md" "new pl should advance the shared sequence"
+
+run_task "$project_root" new tk rvw reserved-board p1
+assert_eq "$task_status" "1" "new should reject rvw as a retired reserved board name"
+assert_contains "$task_stderr" "board must not be a workflow state" "new should explain reserved board names"
+
+run_task "$project_root" new rp runtime legacy-review
+assert_eq "$task_status" "1" "new should reject legacy global rp docs"
+assert_contains "$task_stderr" "rp is legacy" "new should point review creation to issue-scoped review command"
 
 linked_root="$(make_linked_worktree "$project_root" "task/new-control-plane")"
 run_task "$linked_root" new rs runtime linked-attempt
@@ -877,6 +1265,37 @@ EOF
 run_task "$project_root" orphan-scan main
 assert_eq "$task_status" "1" "orphan-scan should fail on current worktree truth drift"
 assert_contains "$task_stdout" "worktree ?? issues/tk10058.tdo.runtime.stranded-worktree.p1.md" "orphan-scan should report untracked truth path"
+
+rm -rf "$project_root"
+
+######## orphan-scan should treat docs/progress as workflow truth
+
+project_root="$(make_git_project)"
+write_file "$project_root/issues/tk10059.tdo.runtime.progress-truth.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+reviewer: user
+why: docs/progress should not strand in worktrees
+scope: validate progress truth scan
+risk: low
+accept: orphan-scan reports untracked progress files
+memory: none
+links: []
+---
+EOF
+(
+  cd "$project_root"
+  git add issues/tk10059.tdo.runtime.progress-truth.p1.md
+  git commit -qm "test: add progress parent"
+)
+write_file "$project_root/docs/progress/tk10059.s01-repro.tdo.md" <<'EOF'
+# tk10059.s01-repro
+EOF
+
+run_task "$project_root" orphan-scan main
+assert_eq "$task_status" "1" "orphan-scan should fail on untracked progress truth"
+assert_contains "$task_stdout" "worktree ?? docs/progress/tk10059.s01-repro.tdo.md" "orphan-scan should report untracked progress path"
 
 rm -rf "$project_root"
 

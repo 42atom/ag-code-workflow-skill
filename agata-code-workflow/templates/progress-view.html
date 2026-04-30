@@ -23,7 +23,6 @@
         /* Status Colors */
         --color-todo: #9b9ba1;
         --color-active: #006adc;
-        --color-review: #7c3aed;
         --color-blocked: #f97316;
         --color-done: #10b981;
         --color-cancelled: #6b7280;
@@ -493,7 +492,6 @@
       const STATE_CONFIG = {
         'tdo': { icon: 'icon-circle', color: 'var(--color-todo)' },
         'doi': { icon: 'icon-half', color: 'var(--color-active)' },
-        'rvw': { icon: 'icon-half', style: 'opacity: 0.8; animation: pulse 2s infinite;', color: 'var(--color-review)' },
         'dne': { icon: 'icon-check', color: 'var(--color-done)' },
         'bkd': { icon: 'icon-full', color: 'var(--color-blocked)' },
         'cand': { icon: 'icon-circle', style: 'opacity: 0.5', color: 'var(--color-cancelled)' },
@@ -517,12 +515,15 @@
           html = `
             <div class="metric-item"><span>Tasks</span><span class="metric-value">${m.task_total}</span></div>
             <div class="metric-item"><span>Active</span><span class="metric-value" style="color: var(--accent)">${m.active_total}</span></div>
-            <div class="metric-item"><span>Review</span><span class="metric-value" style="color: var(--color-review)">${m.review_total}</span></div>
+            <div class="metric-item"><span>Reviews</span><span class="metric-value">${m.review_total}</span></div>
             <div class="metric-item"><span>Done</span><span class="metric-value" style="color: var(--color-done)">${m.done_total}</span></div>
             <div class="metric-item"><span>Blocked</span><span class="metric-value" style="color: var(--color-blocked)">${m.blocked_total}</span></div>
+            <div class="metric-item"><span>Ready</span><span class="metric-value" style="color: var(--accent)">${m.ready_tdo_total}</span></div>
+            <div class="metric-item"><span>DAG</span><span class="metric-value" style="${m.dag_blocked_total ? 'color: var(--color-blocked)' : ''}">${m.dag_blocked_total}</span></div>
+            <div class="metric-item"><span>Steps</span><span class="metric-value" style="${m.progress_open_total ? 'color: var(--color-blocked)' : ''}">${m.progress_open_total}/${m.progress_doc_total}</span></div>
             <div class="metric-item"><span>Docs</span><span class="metric-value">${m.non_task_total + m.review_doc_total}</span></div>
             <div class="metric-item"><span>Stale</span><span class="metric-value" style="${m.stale_coauthor_total ? 'color: var(--color-blocked)' : ''}">${m.stale_coauthor_total}</span></div>
-            <div class="metric-item"><span>Progress</span><span class="metric-value">${Math.round(m.completion_ratio * 100)}%</span></div>
+            <div class="metric-item"><span>Complete</span><span class="metric-value">${Math.round(m.completion_ratio * 100)}%</span></div>
           `;
         } else {
           html = `
@@ -602,6 +603,10 @@
         if (linkBits.length) {
           groups.push({ label: '链接', items: linkBits });
         }
+        const depBits = (issue.dependencies || []).slice(0, 6).map(dep => `${dep.id}${dep.state ? `.${dep.state}` : ''}${dep.satisfied ? ' ✓' : ''}`);
+        if (depBits.length) {
+          groups.push({ label: '依赖', items: depBits });
+        }
         if (evidenceBits.length) {
           groups.push({ label: '说明', items: evidenceBits });
         }
@@ -629,18 +634,17 @@
       function warningBits(issue) {
         const warnings = [];
         const brokenLinks = (issue.links || []).filter(item => !item.exists).length;
-        const linkedRpCount = (issue.links || []).filter(item => /^rp\d{4,5}\./.test(item.label || '')).length;
-
         if (brokenLinks > 0) {
           warnings.push(brokenLinks === 1 ? 'broken link' : `broken links ×${brokenLinks}`);
         }
         if ((issue.memory === 'required' || issue.memory === 'done') && !issue.has_memory_anchor) {
           warnings.push('memory unanchored');
         }
-        if (issue.kind === 'tk' && issue.state === 'rvw') {
-          if (!issue.verify) warnings.push('verify missing');
-          if (!issue.code_version) warnings.push('code missing');
-          if (linkedRpCount === 0) warnings.push('rp missing');
+        if (issue.dag_blocked) {
+          warnings.push('dag blocked');
+        }
+        if ((issue.progress_open_count || 0) > 0) {
+          warnings.push(`open steps ×${issue.progress_open_count}`);
         }
         return warnings;
       }
@@ -710,6 +714,8 @@
           issue.code_version ? `code ${issue.code_version}` : '',
           issue.memory && issue.memory !== 'none' ? `memory ${issue.memory}` : '',
           issue.has_memory_anchor ? 'anchored' : '',
+          issue.ready_status === 'ready' ? 'ready' : '',
+          issue.active_progress ? `step ${issue.active_progress.doc_id}` : '',
         ].filter(Boolean);
         const warnings = warningBits(issue);
         return `
@@ -726,6 +732,7 @@
               </div>
               <div class="issue-detailline">
                 ${warningChips(warnings)}
+                ${issue.active_progress ? signalChips([`${issue.active_progress.state}: ${issue.active_progress.title}`], true) : ''}
               </div>
             </div>
             <div class="issue-board">${escapeHtml(issue.board || '—')}</div>
@@ -756,7 +763,7 @@
         const renderStateGroups = (items) => {
           if (items.length === 0) return '';
           const groups = {};
-          const stateOrder = ['doi', 'rvw', 'bkd', 'tdo', 'dne', 'cand', 'arvd'];
+          const stateOrder = ['doi', 'bkd', 'tdo', 'dne', 'cand', 'arvd'];
 
           items.forEach(item => {
             const s = item.state;

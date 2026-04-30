@@ -1,17 +1,19 @@
 ---
 name: agata-code-workflow
-description: Use when the user wants to create, update, review, or validate Agata-style file-based workflow artifacts such as task files, plan files, research files, review threads, operator checklists, or coauthors.csv. Also use it for ordinary project documentation in repos that follow this workflow, so docs stay aligned with the same truth-source boundaries. Covers task-first naming, filename-based state transitions, issue/review separation, review round naming, adjacent project docs, and minimal workflow discipline for local Git-based collaboration.
+description: Use when the user wants to create, update, review, or validate Agata-style file-based workflow artifacts such as task files, plan files, research files, progress step files, review threads, operator checklists, or coauthors.csv. Also use it for ordinary project documentation in repos that follow this workflow, so docs stay aligned with the same truth-source boundaries. Covers parent-first review naming, filename-based state transitions, issue/progress/review separation, review round naming, adjacent project docs, and minimal workflow discipline for local Git-based collaboration.
 ---
 
 # Agata Code Workflow
 
 Use this skill when work touches the file-based workflow itself:
 
-- create or rename `tk` / `pl` / `rs` / `rp` files
+- create or rename `tk` / `pl` / `rs` / `rv` files
+- create task-scoped progress step files under `docs/progress/`
 - decide where a new request should land
+- prepare a plan-to-task coverage table before batching work
 - review whether a workflow file is correctly named or placed
-- convert loose review notes into task-first review records
-- validate `rvw` readiness, review rounds, or `coauthors.csv`
+- convert loose review notes into parent-first review records
+- validate retired states, review rounds, or `coauthors.csv`
 - organize issue truth source and review evidence in a local Git repo
 - write dense AAAK summaries for tasks, research, review, or project memory
 - write or revise ordinary project docs without creating a parallel workflow system
@@ -19,7 +21,9 @@ Use this skill when work touches the file-based workflow itself:
 - start implementation in a dedicated `git worktree` for the current task
 - judge whether a worktree is clean, single-task dirty, or contaminated by another task line
 - run review or verification in an isolated `git worktree` when collaboration would otherwise collide
-- recover `tk` / `pl` / `rp` truth that may be stranded in another local branch or worktree
+- recover `tk` / `pl` / `rv` truth that may be stranded in another local branch or worktree
+- place raw references, design resources, or AI-generated drafts without turning them into workflow truth
+- run a file-driven primary-agent dispatch loop when the user explicitly wants sub-agents to implement and review work
 - close each finished round with a fixed next-step marker line
 
 Do not invent a second state system. The filename state slot is the truth source.
@@ -27,12 +31,19 @@ Do not invent a second state system. The filename state slot is the truth source
 ## Core Rules
 
 1. `issues/` is the task truth source.
-2. `tk` carries state. `rp` carries review evidence.
+2. `issues/` files carry state. Issue-scoped `rv` files carry review exchange evidence.
 3. `pl` is for discussion/spec. `rs` is for research. `tk` is the executable issue.
-4. Review files are task-first and round-based: `review-rN` / `reply-rN`.
-5. `commit` and `branch` are implementation trace, not task truth.
-6. `coauthors.csv` is only dispatch context, never task state.
-7. Ordinary docs may live outside `issues/`, but they must not redefine workflow state, task truth, or review truth.
+4. Progress files under `docs/progress/` carry execution workpad evidence; they never decide issue closure.
+5. Review files are parent-first and thread/round based: `<issue-id>.rvMMM-rN-author.md`.
+6. `commit` and `branch` are implementation trace, not task truth.
+7. `coauthors.csv` is only dispatch context, never task state.
+8. Ordinary docs may live outside `issues/`, but they must not redefine workflow state, task truth, progress truth, or review truth.
+9. Review depth follows risk. Cross-process communication, persistence, state machines, lifecycle ownership, and contract changes need stronger evidence than pure UI or projection tasks.
+10. Backlog is `tk.tdo`, not a separate `bl` kind. Do not add a parallel backlog file type.
+11. `aidocs/` is a staging area for raw materials and AI collaboration artifacts. It is not workflow truth.
+12. Raw sub-agent output is advisory until the primary agent promotes it. Assigned `rv` review records are evidence, but never task-state or closure authority.
+13. DAG readiness is not a state. Keep future required work as `tdo` and express blockers with `depends_on`.
+14. `cand` means withdrawn from active required work; it does not mean candidate backlog.
 
 ## Workflow
 
@@ -41,58 +52,123 @@ Do not invent a second state system. The filename state slot is the truth source
    - discussion not settled -> `pl`
    - fact-finding or feasibility -> `rs`
    - scoped and executable -> `tk`
-   - review exchange -> `rp`
-3. Default to one agent pushing the mainline end-to-end. Do not split work into extra rounds unless the next step is truly blocked by review, user decision, risk confirmation, missing evidence, or a real role handoff.
-4. Default to one active task line in one dedicated worktree.
-5. When a compiled-app test, live repro, or runtime trace changes the understood root cause, task boundary, or ownership split, stop further implementation and update the controlling `tk` and any linked `rp` first. Do not continue coding on stale workflow truth.
-6. During closure, keep exactly one controlling task line. Related tasks may be cited as dependencies, consumers, or historical anchors, but do not advance multiple overlapping `tk` lines in parallel.
-7. The shared root checkout is the workflow control plane. Workflow truth files under `issues/`, `docs/reviews/`, `refs/project-memory-aaak.md`, and `coauthors.csv` must be created and updated there.
-8. `doi` claims task ownership, and the `tdo -> doi` move must happen on that shared control plane before implementation starts anywhere else.
-9. Dedicated task worktrees are execution sites for code, tests, generated files, and temporary drafts. They must not become a second workflow control plane.
-10. After the control-plane state is visible in the shared checkout, implementation may proceed in that task's dedicated worktree.
-11. A dirty worktree is allowed when all changes belong to the current task line.
-12. If unrelated modified or untracked files appear in the current worktree, treat it as contamination and stop stacking work there.
-13. Switching tasks means switching worktrees, not continuing in the current dirty checkout.
-14. Review may use a separate review worktree for audit or verification, but authoritative `tk` / `rp` updates still return to the shared control plane.
-15. Reuse the same task worktree while the same task is still active. When the task closes into `dne` / `cand` / `arvd` and all related changes are landed, remove that worktree. `bkd` may keep the worktree frozen, but do not mix another task into it.
-16. Preserve id-first naming and keep the filename slots stable except for state.
-17. When a task moves state, rename the existing `tk` file; do not create a parallel file.
-18. When review happens, create new `rp` files; do not encode reply chains as `re.` or `re.re.`.
-19. `rp` records are append-style evidence. Once created, treat them as frozen and prefer `dne`.
-20. In `tk.links`, prefer stable `rpNNNN` / `rpNNNNN` anchors over stateful review filenames.
-21. Before moving a code task to `rvw`, confirm it has non-empty `accept`, `code_version`, `verify`, and at least one linked `rp`.
-22. `refs/project-memory-aaak.md` is historical memory, not task truth. Memory-gated tasks must anchor there as `锚: tkNNNN` / `锚：tkNNNN` or `锚: tkNNNNN` / `锚：tkNNNNN`.
-23. Keep any helper automation thin. Scripts may validate and rename files, but must not become a second control plane.
-24. `pl` and any `tdo` document are shared pending truth. Do not leave them only in a disposable task worktree or snapshot branch.
-25. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
-26. If memory, review, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rp` id that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
-27. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Draft related notes elsewhere, then land the authoritative update from the shared control plane.
-28. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells.
-29. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; new `rp` docs start at `dne`.
-30. Do not infer a legacy truth path such as `docs/plan/` from stray old files. Only deviate from `issues/` when the target project has explicit local workflow rules or current control-plane truth that says so.
-31. Do not write project memory just because you are creating a fresh `pl` / `rs` / `tk`. Memory is for stable milestones, key decisions, freeze points, or tasks that explicitly require `memory: required`.
-32. `task.sh move <id> doi` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. In same-engine concurrency, thread id is the primary disambiguator.
-33. Control-plane mutation on the same task line must be serial. Do not pre-issue multiple `move` commands for the same task; after each successful move, re-read the task truth and gates before deciding the next transition.
-34. Worktree teardown is a control-plane reconciliation step. Only prune after the task is already closed into `dne` / `cand` / `arvd`, workflow truth is clean, and the linked worktree no longer carries execution-only diff versus the chosen base ref.
-35. `doi` and `bkd` are not prune targets. `doi` must be released first; `bkd` keeps a frozen worktree unless the control plane explicitly changes direction.
-36. In a linked worktree, local `issues/`, `docs/reviews/`, `refs/project-memory-aaak.md`, and `coauthors.csv` are only branch mirrors. They are not the authoritative truth view.
-37. Workflow helpers should read and write truth through the shared control plane by default. `check` only keeps the current-worktree view for truth-pollution checks; every global workflow semantic check still reads from the control plane. `orphan-scan` still inspects the current worktree while comparing against shared refs.
-38. `prune` must not remove the worktree that contains the current shell cwd. If you are standing in the target worktree, `cd` out first.
-39. Dependency and runtime verification are worktree-local. If source, lockfile, or config differs from another checkout, install dependencies inside the current worktree before build/test.
-40. For JS/TS worktrees, detect the package manager from lockfiles (`pnpm-lock.yaml` / `package-lock.json` / `yarn.lock`) and run deterministic install (`pnpm install --frozen-lockfile` / `npm ci` / `yarn install --frozen-lockfile`) before verification commands.
-41. If verification fails because dependencies are missing or stale, stop and report it explicitly as dependency drift in the current worktree; do not borrow another worktree's install result or hide the failure.
-42. Do not create a task branch or task worktree before the controlling `tk` exists in `issues/`. Do not implement first and backfill task truth later.
-43. Do not create a review branch or review worktree before both the controlling `tk` and the intended review-round truth exist.
-44. Close code tasks in this order: finish implementation and verification in the dedicated worktree, land code on the target mainline branch, move the controlling task to `dne`, then clean up that task's worktree and local branch.
-45. Never conclude verification from a mixed runtime (old process + new code). Exit old processes first, then run verification on the new build/runtime only.
+   - review exchange -> `rv`
+3. Use this intake split:
+   - material-inspired or fact-unclear -> `rs`
+   - direction exists but the plan is not executable yet -> `pl`
+   - executable and accepted for backlog -> `tk.tdo`
+   - ready to work now -> `tk.tdo`, then claim as `tk.doi`
+4. Before batching a plan into tasks, output a read-only coverage table: `plan clause -> owning tk -> state -> depends_on -> ready? -> gap`. If a clause has no owning `tk`, mark it as a gap instead of relying on chat memory.
+5. Before creating a new workflow doc, search the current truth source for the same scope. `task.sh new` only allocates an id; it is not a semantic deduplicator.
+6. Default to one agent pushing the mainline end-to-end. Do not split work into extra rounds unless the next step is truly blocked by review, user decision, risk confirmation, missing evidence, or a real role handoff.
+7. Default to one active task line in one dedicated worktree.
+8. When a compiled-app test, live repro, or runtime trace changes the understood root cause, task boundary, or ownership split, stop further implementation and update the controlling `tk` and any linked `rv` first. Do not continue coding on stale workflow truth.
+9. During closure, keep exactly one controlling task line. Related tasks may be cited as dependencies, consumers, or historical anchors, but do not advance multiple overlapping `tk` lines in parallel.
+10. The shared root checkout is the workflow control plane. Workflow truth files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` must be created and updated there.
+11. `doi` claims task ownership, and the `tdo -> doi` move must happen on that shared control plane before implementation starts anywhere else.
+12. Dedicated task worktrees are execution sites for code, tests, generated files, and temporary drafts. They must not become a second workflow control plane.
+13. After the control-plane state is visible in the shared checkout, implementation may proceed in that task's dedicated worktree.
+14. A dirty worktree is allowed when all changes belong to the current task line.
+15. If unrelated modified or untracked files appear in the current worktree, treat it as contamination and stop stacking work there.
+16. Switching tasks means switching worktrees, not continuing in the current dirty checkout.
+17. Review may use a separate review worktree for audit or verification, but authoritative `tk` / `rv` updates still return to the shared control plane.
+18. Reviewers must actively search for duplicate truth paths: the same id, ref, result, status, owner, recovery path, prompt surface, or UI/debug surface must not have two owners unless the plan explicitly says which one exits.
+19. Reuse the same task worktree while the same task is still active. When the task closes into `dne` / `cand` / `arvd` and all related changes are landed, remove that worktree. `bkd` may keep the worktree frozen, but do not mix another task into it.
+20. Preserve id-first naming and keep the filename slots stable except for state.
+21. When an issue moves state, rename the existing `tk` / `pl` / `rs` / `rf` file; do not create a parallel file.
+22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rN-author.md`.
+23. `rv` records are immutable exchange messages. Once created, treat them as frozen.
+24. Keep the same `rvMMM` for the same review thread; use `r1`, `r2`, `r3` for each exchange message.
+25. Review is evidence, not a `tk` state. Keep review rounds in `rv` records and close the controlling `tk` only after blocking review findings are resolved.
+26. Links must use stable anchors, not stateful full filenames. Use `tk0001`, `rp0001`, `tk0001.rv001-r1-codex`, or `tk0001.s01-repro`; never link `tk0001.tdo.*.md`.
+27. Use `docs/progress/<tk-id>.sNN-<slug>.<state>.md` when a long task needs a file-driven workpad. Valid progress states are `tdo`, `doi`, `dne`, and `bkd`.
+28. Progress files are task-scoped execution ledger entries. They may record env stamp, goal, done, verify, next, and risk; they do not replace the parent `tk`.
+29. A closed parent `tk` must not leave open progress steps. Drain or close progress before moving the parent to `dne`, `cand`, or `arvd`.
+30. `refs/project-memory-aaak.md` is historical memory, not task truth. Memory-gated tasks must anchor there as `锚: tkNNNN` / `锚：tkNNNN` or `锚: tkNNNNN` / `锚：tkNNNNN`.
+31. Stable architectural review judgments, freeze points, and recurring risk rules belong in project memory when they will matter after the current chat; routine task progress does not.
+32. Keep any helper automation thin. Scripts may validate and rename files, but must not become a second control plane.
+33. Use `task.sh move` for state-slot changes by default. If the helper cannot express a clearly legal state-slot rename, a manual rename is allowed only as a helper-gap fallback; update the same document, run `task.sh check` immediately, and report the helper gap.
+34. `pl` and any `tdo` document are shared pending truth. Do not leave them only in a disposable task worktree or snapshot branch.
+35. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, `docs/progress/`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
+36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
+37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Draft related notes elsewhere, then land the authoritative update from the shared control plane.
+38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
+39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rN-author>` for review exchange docs.
+40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
+41. Do not write project memory just because you are creating a fresh `pl` / `rs` / `tk`. Memory is for stable milestones, key decisions, freeze points, or tasks that explicitly require `memory: required`.
+42. `task.sh move <id> doi` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. In same-engine concurrency, thread id is the primary disambiguator.
+43. Control-plane mutation on the same task line must be serial. Do not pre-issue multiple `move` commands for the same task; after each successful move, re-read the task truth and gates before deciding the next transition.
+44. Worktree teardown is a control-plane reconciliation step. Only prune after the task is already closed into `dne` / `cand` / `arvd`, workflow truth is clean, and the linked worktree no longer carries execution-only diff versus the chosen base ref.
+45. `doi` and `bkd` are not prune targets. `doi` must be released first; `bkd` keeps a frozen worktree unless the control plane explicitly changes direction.
+46. In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` are only branch mirrors. They are not the authoritative truth view.
+47. Workflow helpers should read and write truth through the shared control plane by default. `check` only keeps the current-worktree view for truth-pollution checks; every global workflow semantic check still reads from the control plane. `orphan-scan` still inspects the current worktree while comparing against shared refs.
+48. `prune` must not remove the worktree that contains the current shell cwd. If you are standing in the target worktree, `cd` out first.
+49. Dependency and runtime verification are worktree-local. If source, lockfile, or config differs from another checkout, install dependencies inside the current worktree before build/test.
+50. For JS/TS worktrees, detect the package manager from lockfiles (`pnpm-lock.yaml` / `package-lock.json` / `yarn.lock`) and run deterministic install (`pnpm install --frozen-lockfile` / `npm ci` / `yarn install --frozen-lockfile`) before verification commands.
+51. If verification fails because dependencies are missing or stale, stop and report it explicitly as dependency drift in the current worktree; do not borrow another worktree's install result or hide the failure.
+52. Do not create a task branch or task worktree before the controlling `tk` exists in `issues/`. Do not implement first and backfill task truth later.
+53. Do not create a review branch or review worktree before both the controlling `tk` and the intended review-round truth exist.
+54. Branch names should express workflow role, not agent identity. Prefer `task/tkNNNN-<slug>`, `review/tkNNNN-<slug>`, `salvage/<name>`, and `release/<version>` unless the project defines a stricter local convention.
+55. Keep task, review, and salvage worktrees outside the repository directory, under a project-level worktree root when one is defined. Do not hide execution worktrees inside the repo being edited.
+56. Close code tasks in this order: finish implementation and verification in the dedicated worktree, land code on the target mainline branch, move the controlling task to `dne`, then clean up that task's worktree and local branch.
+57. `dne` is not valid while the implementation only exists in a task worktree; code changes must already be drained into the target mainline branch.
+58. Test files must not grab a workflow id before the controlling `tk` exists. Regression or source-lock tests that serve an existing task should reuse the owner task id or use non-task-id naming.
+59. New IPC, event, channel, protocol, projection, or cross-boundary contract work must name three roles before implementation: who defines it, who produces it, and who consumes it. Missing producer or consumer ownership is a plan gap, not an implementation detail.
+60. Cross-process communication, persistence, state-machine, lifecycle, replay, debug, and contract tasks need verification in the real runtime boundary they change. Single-process unit tests cannot be the only evidence for those risks.
+61. UI feedback may expose progress, waiting, success, or failure states, but it must not become lifecycle truth. Completion still follows the controlling task, ledger, or project-defined source of truth.
+62. Never conclude verification from a mixed runtime (old process + new code). Exit old processes first, then run verification on the new build/runtime only.
+63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
+64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
+
+## Completion Bar
+
+Put the close-out checklist in the parent `tk`, not in `docs/progress/`.
+
+Minimal checklist:
+
+- progress drained
+- acceptance met
+- focused tests pass
+- typecheck/build pass when relevant
+- review blockers resolved or explicitly overruled
+- PR / inline / bot feedback swept when relevant
+- implementation drained to target mainline
+- `task.sh check` pass
+- task worktree and local branch ready for cleanup
+
+If the parent `tk` is blocked, write a blocker brief in the parent or current progress file: `missing`, `impact`, `tried`, `unblock_action`.
 
 ## Control-Plane Concurrency
 
 - A passing `task.sh check` is a semantic verdict, not an ownership verdict. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
-- On the shared control plane, unrelated edits under `issues/`, `docs/reviews/`, `refs/project-memory-aaak.md`, or `coauthors.csv`, plus untracked `tk` / `pl` / `rs` / `rf` / `rp` files, are foreign active lines by default, not "noise".
+- On the shared control plane, unrelated edits under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`, plus untracked `tk` / `pl` / `rs` / `rf` / `rv` files, are foreign active lines by default, not "noise".
 - Before touching a foreign active line, inspect the task id, state, `claimed_at`, `claimed_by`, `claimed_thread_id`, links, nearby review or memory anchors, and `coauthors.csv` when present. Use those signals to decide whether someone else is actively landing truth.
-- On the same task line, control-plane writes are serial by default. Do not pipeline `move` calls such as `doi -> rvw -> dne`; each step must land, then re-read truth and gates before the next step.
+- On the same task line, control-plane writes are serial by default. Do not pipeline `move` calls such as `tdo -> doi -> dne`; each step must land, then re-read truth and gates before the next step.
 - Unless you are explicitly taking over, do not delete, rename, stage, or fold a foreign active line into your own commit. Commit only your own truth edits and report the other active line separately.
+
+## Primary-Agent Dispatch Loop
+
+Use this only when the user explicitly wants agent dispatch, parallel agents, or sub-agents. Do not turn ordinary work into delegation by default.
+
+The primary agent owns the mainline decision. Sub-agents may implement, verify, or review, but they do not own task state or closure.
+
+Minimal loop:
+
+1. Primary agent writes or updates the controlling `tk` / `pl` on the shared control plane.
+2. Primary agent assigns each sub-agent a bounded scope, owner files/modules, non-scope, verification commands, and expected return format.
+3. Implementation sub-agents work in dedicated worktrees and report changed files, verification, unfinished work, and handoff notes.
+4. Review sub-agents write findings as `docs/reviews/<issue-id>.rvMMM-rN-author.md` when assigned a clean review round; otherwise their raw output goes to `aidocs/agent-runs/`. They do not move the controlling issue state.
+5. Primary agent consumes sub-agent output, promotes valid conclusions into `tk` / `rv`, rejects or fixes bad output, and decides whether to repair, re-dispatch, split a new `tk`, request user decision, or close.
+6. Primary agent closes only after implementation is on the target mainline, blocking review findings are resolved or explicitly overruled, verification evidence is written back, and `task.sh check` passes.
+
+Failure takeover:
+
+- Treat sub-agent failure as normal, not exceptional. The primary agent must be able to recover from files plus git state without asking the user to forward messages.
+- Raw sub-agent output belongs under `aidocs/agent-runs/`, for example `aidocs/agent-runs/tk0615.impl-codex-20260430T1030Z.md` or `aidocs/agent-runs/tk0615.review-gemini-20260430T1110Z.md`.
+- `aidocs/agent-runs/` is low-trust staging. It is useful for recovery, but it is not task truth, review truth, or project memory.
+- A failed sub-agent run must record what it attempted, what changed, what verified, what failed, and how another agent can resume. If that cannot be recovered, the primary agent inspects the worktree diff and writes a short takeover note before continuing.
+- Do not let a failed sub-agent block the mainline more than one recovery cycle. The primary agent either takes over, re-dispatches with a narrower scope, or marks the controlling issue `bkd` with a concrete blocker.
+- Promote only durable conclusions: review findings to `rv`, task decisions to `tk`, recurring architectural lessons to project memory, and implementation to mainline code. Leave raw transcripts in `aidocs/agent-runs/`.
 
 ## Bundled Script
 
@@ -102,10 +178,12 @@ Resolve bundled helper paths relative to this `SKILL.md` file's directory. Do no
 Current commands:
 
 - `task.sh new <kind> <board> <slug> [prio]`
+- `task.sh review <issue-id> <rvNNN> <rN-author>`
+- `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh ls [state]`
 - `task.sh find <id>`
 - `task.sh show <task-id>`
-- `task.sh move <task-id> <state>`
+- `task.sh move <issue-id> <state>`
 - `task.sh archive <task-id>`
 - `task.sh prune <task-id> <base-ref>`
 - `task.sh check`
@@ -113,7 +191,10 @@ Current commands:
 - `progress_view.py [--project-root <path>] [--no-open]`
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, and memory-gated close checks.
-For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`, and new `rp` docs start as `dne`.
+For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rN-author>`; do not allocate global review ids for new work.
+For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
+`task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.
+For `task.sh move`, `<issue-id>` may be `tkNNNN`, `plNNNN`, `rsNNNN`, or `rfNNNN`; a bare numeric id still means `tkNNNN`.
 For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, when available, `claimed_thread_id`. You can override the coarse claimant with `AGATA_CLAIMANT` and the thread marker with `AGATA_CLAIM_THREAD_ID`.
 `task.sh ls`, `find`, `show`, `new`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
@@ -132,7 +213,7 @@ Read `references/aaak-profiles.md` when the user wants a workflow-specific AAAK 
 
 - `tk`
 - `rs`
-- `rp`
+- `rv`
 - project memory notes
 
 Read `references/project-docs.md` when the user is writing or revising ordinary project docs such as:
@@ -154,9 +235,13 @@ Read `refs/project-memory-aaak.md` when:
 Typical cases:
 
 - creating a new workflow file
-- deciding whether something belongs in `pl` or `tk`
+- deciding whether something belongs in `rs`, `pl`, `tk.tdo`, or `tk.doi`
 - checking review round naming
-- checking `rvw` entry requirements
+- creating or validating `docs/progress/` workpad steps
+- checking for retired `rvw` state residue
+- preparing a plan-to-task coverage table before batching implementation
+- checking whether a new task duplicates existing scope
+- checking cross-boundary define / produce / consume ownership
 - diagnosing linked-worktree dependency drift before running build/test
 - checking `coauthors.csv` shape
 - creating a new workflow doc id without racing another shell
@@ -170,15 +255,15 @@ Typical cases:
 - Prefer modifying the existing truth-source file over creating a new explanatory document.
 - Workflow truth edits belong on the shared root checkout control plane, even if implementation is happening in another worktree.
 - After any live repro, compiled-app verification, or runtime trace that changes the current diagnosis, first write back a minimal truth resync note to the controlling workflow artifact before continuing. That note must say: scene, observed truth, root-cause or boundary judgment, and the next cut.
-- Do not start the next fix while the controlling `tk` / `rp` still reflects an older diagnosis than the latest live evidence.
-- If a linked worktree needs to write task notes or review drafts, keep them outside the truth-source paths until they are ready to land on the control plane.
+- Do not start the next fix while the controlling `tk` / `rv` still reflects an older diagnosis than the latest live evidence.
+- If a linked worktree needs to write task notes, progress drafts, or review drafts, keep them outside the truth-source paths until they are ready to land on the control plane.
 - For ordinary docs, prefer updating the canonical doc instead of creating a parallel note with overlapping scope.
-- If a new review artifact is needed, make it task-first and minimal.
+- If a new review artifact is needed, make it parent-first and minimal.
 - If a request can be answered by renaming an existing file, do that instead of adding a layer.
 - If the user asks for automation, start with a thin shell entrypoint, not a platform.
 - Do not place ordinary project docs under workflow-only slots such as `pl` / `rs` just to make them look tracked.
 - For worktree status questions, answer with a three-state verdict first: `clean`, `single-task dirty, can continue`, or `contaminated, must split`.
-- Close tasks with task-scoped evidence only. Do not generalize to the whole repo or all worktrees.
+- Close tasks with scoped evidence only. Do not generalize to the whole repo or all worktrees.
 - For cleanup, say only that the current task's bound worktree and local branch were reclaimed. Do not say things like "only the root repo remains" or "everything was cleaned".
 - Call unrelated shared-control-plane changes `foreign active lines`, not "noise" or generic dirty state.
 - If new scope appears after a task is already `dne`, say it needs a new `tk` instead of writing back into the closed task.
