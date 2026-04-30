@@ -99,6 +99,7 @@ state：
 - 需要摸底验证，落 `rs`
 - 范围和验收清楚后，才创建 `tk`
 - review 讨论、阻断点、回合往返，都落 `rv`
+- 读取完整 review thread 时用 `task.sh thread <issue-id.rvNNN>`；不要为了阅读方便把多条 `rv` 合成一个可写文件
 - `pl` 不是 backlog；backlog 是已收敛但未开做的 `tk.tdo`
 - 受资料启发但事实未明，先落 `rs`
 - 有方向但不适合马上执行，落 `pl` 并保持 `tdo`
@@ -202,6 +203,11 @@ env: <host>:<abs-workdir>@<short-sha>
 ```
 
 收口检查放父 `tk`，不是 progress：
+
+- `accept` = 任务契约
+- progress `Goal` = 当前步骤目标
+- `Completion Bar` = 关单 checklist
+- 三者冲突时，修父 `tk`；progress 只作证据，不作关单权威
 
 ```md
 ## Completion Bar
@@ -352,7 +358,8 @@ review 命名规则：
 工作树语义规则：
 
 - 一个活跃 task 默认对应一个专属 worktree
-- 主 checkout 是共享控制面；`issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的真相改动都在这里发生
+- 主 checkout 是共享控制面；helper 可从 linked worktree 调用并把真相写回主 checkout
+- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的权威改动只落在共享控制面
 - linked worktree 里的这些 truth path 只是该分支镜像，不是权威真相视图
 - linked task worktree 若需要写验证记录、review 草稿或实现笔记，先写在非真相路径；不得直接改上述真相路径里的正式文件
 - `tdo -> doi`、`doi -> bkd|cand|dne`、`rv` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
@@ -362,7 +369,7 @@ review 命名规则：
 - task / review / salvage worktree 默认放在仓库目录外部的项目级 worktree 根下；禁止放进被编辑仓库内部，也不要平铺在仓库同级制造混乱
 - `doi` 落盘后，才在该 task 的专属 worktree 中推进实现
 - task worktree 只做代码、测试、生成物和临时草稿，不偷偷改 workflow 状态槽，不把自己当第二控制面
-- `task.sh ls` / `find` / `show` / `new` / `review` / `progress` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
+- `task.sh ls` / `find` / `show` / `new` / `review` / `thread` / `progress` / `move` / `archive` / `prune` 默认穿透到共享控制面，不以当前 linked worktree 里的镜像 truth path 为准
 - `task.sh check` 例外：只有“当前 worktree 有没有 truth 污染”这一刀留在本地；重复 id、review 约束、memory、staleness 等全局语义仍由共享控制面裁决
 - `task.sh check` 通过只说明工作流语义合法，不说明当前共享控制面上的所有脏改都属于你
 - 状态槽迁移默认走 `task.sh move`；只有 helper 明确表达不了合法 rename 时，才允许手动改同一文件的状态槽

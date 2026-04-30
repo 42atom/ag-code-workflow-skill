@@ -64,7 +64,7 @@ Do not invent a second state system. The filename state slot is the truth source
 7. Default to one active task line in one dedicated worktree.
 8. When a compiled-app test, live repro, or runtime trace changes the understood root cause, task boundary, or ownership split, stop further implementation and update the controlling `tk` and any linked `rv` first. Do not continue coding on stale workflow truth.
 9. During closure, keep exactly one controlling task line. Related tasks may be cited as dependencies, consumers, or historical anchors, but do not advance multiple overlapping `tk` lines in parallel.
-10. The shared root checkout is the workflow control plane. Workflow truth files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` must be created and updated there.
+10. The shared root checkout is the workflow control plane. Use helpers from any linked worktree; they route truth writes back to shared root.
 11. `doi` claims task ownership, and the `tdo -> doi` move must happen on that shared control plane before implementation starts anywhere else.
 12. Dedicated task worktrees are execution sites for code, tests, generated files, and temporary drafts. They must not become a second workflow control plane.
 13. After the control-plane state is visible in the shared checkout, implementation may proceed in that task's dedicated worktree.
@@ -76,7 +76,7 @@ Do not invent a second state system. The filename state slot is the truth source
 19. Reuse the same task worktree while the same task is still active. When the task closes into `dne` / `cand` / `arvd` and all related changes are landed, remove that worktree. `bkd` may keep the worktree frozen, but do not mix another task into it.
 20. Preserve id-first naming and keep the filename slots stable except for state.
 21. When an issue moves state, rename the existing `tk` / `pl` / `rs` / `rf` file; do not create a parallel file.
-22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rN-author.md`.
+22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rN-author.md`. Read the thread with `task.sh thread <issue-id.rvNNN>`.
 23. `rv` records are immutable exchange messages. Once created, treat them as frozen.
 24. Keep the same `rvMMM` for the same review thread; use `r1`, `r2`, `r3` for each exchange message.
 25. Review is evidence, not a `tk` state. Keep review rounds in `rv` records and close the controlling `tk` only after blocking review findings are resolved.
@@ -91,7 +91,7 @@ Do not invent a second state system. The filename state slot is the truth source
 34. `pl` and any `tdo` document are shared pending truth. Do not leave them only in a disposable task worktree or snapshot branch.
 35. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, `docs/progress/`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
 36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
-37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Draft related notes elsewhere, then land the authoritative update from the shared control plane.
+37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
 38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
 39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rN-author>` for review exchange docs.
 40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
@@ -123,6 +123,13 @@ Do not invent a second state system. The filename state slot is the truth source
 ## Completion Bar
 
 Put the close-out checklist in the parent `tk`, not in `docs/progress/`.
+
+Truth split:
+
+- `accept` is the task contract.
+- Progress `Goal` is the current step intent.
+- `Completion Bar` is the close gate.
+- If they conflict, fix the parent `tk`; progress is evidence, not authority.
 
 Minimal checklist:
 
@@ -179,6 +186,7 @@ Current commands:
 
 - `task.sh new <kind> <board> <slug> [prio]`
 - `task.sh review <issue-id> <rvNNN> <rN-author>`
+- `task.sh thread <issue-id.rvNNN>`
 - `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh ls [state]`
 - `task.sh find <id>`
@@ -192,11 +200,12 @@ Current commands:
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, and memory-gated close checks.
 For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rN-author>`; do not allocate global review ids for new work.
+Use `task.sh thread <issue-id.rvNNN>` for a read-only combined view of one review thread. It does not rewrite or append `rv` files.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
 `task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.
 For `task.sh move`, `<issue-id>` may be `tkNNNN`, `plNNNN`, `rsNNNN`, or `rfNNNN`; a bare numeric id still means `tkNNNN`.
 For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, when available, `claimed_thread_id`. You can override the coarse claimant with `AGATA_CLAIMANT` and the thread marker with `AGATA_CLAIM_THREAD_ID`.
-`task.sh ls`, `find`, `show`, `new`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
+`task.sh ls`, `find`, `show`, `new`, `review`, `thread`, `progress`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
 Use `task.sh orphan-scan` when you need current-worktree truth drift plus shared-ref comparison before cleanup or recovery.
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die. It re-checks workflow truth, blocks `doi` / `bkd`, and only removes a single linked worktree whose execution diff is already drained against the chosen base ref. It also refuses to delete the worktree that contains the current shell cwd.
@@ -253,7 +262,7 @@ Typical cases:
 ## Output Discipline
 
 - Prefer modifying the existing truth-source file over creating a new explanatory document.
-- Workflow truth edits belong on the shared root checkout control plane, even if implementation is happening in another worktree.
+- Workflow truth edits belong on the shared root checkout control plane. Prefer helper commands from the current worktree over manual `cd` switching.
 - After any live repro, compiled-app verification, or runtime trace that changes the current diagnosis, first write back a minimal truth resync note to the controlling workflow artifact before continuing. That note must say: scene, observed truth, root-cause or boundary judgment, and the next cut.
 - Do not start the next fix while the controlling `tk` / `rv` still reflects an older diagnosis than the latest live evidence.
 - If a linked worktree needs to write task notes, progress drafts, or review drafts, keep them outside the truth-source paths until they are ready to land on the control plane.

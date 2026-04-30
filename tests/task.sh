@@ -645,6 +645,16 @@ run_task "$project_root" find tk10009.rv001-r1-gemini
 assert_eq "$task_status" "0" "find should locate issue-scoped rv docs by full review id"
 assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r1-gemini.md" "find should resolve full issue-scoped rv ids"
 
+run_task "$project_root" review tk10009 rv001 r2-codex
+assert_eq "$task_status" "0" "review command should create the next message in the same thread"
+
+run_task "$project_root" thread tk10009.rv001
+assert_eq "$task_status" "0" "thread command should render a review thread"
+assert_contains "$task_stdout" "<!-- tk10009.rv001-r1-gemini.md -->" "thread output should include r1 filename marker"
+assert_contains "$task_stdout" "<!-- tk10009.rv001-r2-codex.md -->" "thread output should include r2 filename marker"
+[[ "$task_stdout" == *"tk10009.rv001-r1-gemini.md"*"tk10009.rv001-r2-codex.md"* ]] \
+  || fail "thread output should preserve round order"
+
 write_file "$project_root/issues/pl10010.doi.runtime.plan-review.p2.md" <<'EOF'
 ---
 owner: user

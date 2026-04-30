@@ -431,6 +431,7 @@ print_usage() {
 usage:
   task.sh new <kind> <board> <slug> [prio]
   task.sh review <issue-id> <rvNNN> <rN-author>
+  task.sh thread <issue-id.rvNNN>
   task.sh progress <task-id> <sNN-slug> [state]
   task.sh ls [state]
   task.sh find <id>
@@ -925,6 +926,50 @@ cmd_review() {
 
   write_new_issue_doc "$file" "rv"
   echo "$file"
+}
+
+cmd_thread() {
+  local root="$1"
+  local thread_ref="$2"
+  local issue_id thread
+
+  [[ "$thread_ref" =~ ^((tk|pl|rs|rf)${ID_DIGITS_RE})\.(rv[0-9]{3})$ ]] \
+    || die "thread id must look like <issue-id>.rvNNN"
+
+  issue_id="${BASH_REMATCH[1]}"
+  thread="${BASH_REMATCH[3]}"
+  find_issue_file_anywhere "$root" "$issue_id" >/dev/null
+
+  python3 - "$root" "$issue_id" "$thread" <<'PY'
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+issue_id = sys.argv[2]
+thread = sys.argv[3]
+review_dir = root / "docs" / "reviews"
+pattern = re.compile(rf"^{re.escape(issue_id)}\.{re.escape(thread)}-r([0-9]+)-([a-z0-9-]+)\.md$")
+items = []
+
+for path in review_dir.glob(f"{issue_id}.{thread}-r*-*.md"):
+    match = pattern.match(path.name)
+    if match:
+        items.append((int(match.group(1)), match.group(2), path))
+
+if not items:
+    sys.stderr.write(f"error: review thread not found: {issue_id}.{thread}\n")
+    sys.exit(1)
+
+for index, (_, _, path) in enumerate(sorted(items)):
+    if index:
+        print("\n---\n")
+    print(f"<!-- {path.name} -->")
+    content = path.read_text(encoding="utf-8")
+    sys.stdout.write(content)
+    if not content.endswith("\n"):
+        print()
+PY
 }
 
 normalize_doc_id() {
@@ -1911,6 +1956,12 @@ main() {
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -eq 4 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rN-author>"
       cmd_review "$control_root" "$2" "$3" "$4"
+      ;;
+    thread)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -eq 2 ]] || die "usage: task.sh thread <issue-id.rvNNN>"
+      cmd_thread "$control_root" "$2"
       ;;
     progress)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
