@@ -58,8 +58,8 @@ Do not invent a second state system. The filename state slot is the truth source
    - direction exists but the plan is not executable yet -> `pl`
    - executable and accepted for backlog -> `tk.tdo`
    - ready to work now -> `tk.tdo`, then claim as `tk.doi`
-4. Before batching a plan into tasks, output a read-only coverage table: `plan clause -> owning tk -> state -> depends_on -> ready? -> gap`. If a clause has no owning `tk`, mark it as a gap instead of relying on chat memory.
-5. Before creating a new workflow doc, search the current truth source for the same scope. `task.sh new` only allocates an id; it is not a semantic deduplicator.
+4. Before batching a plan into tasks, output a read-only coverage table from the live `issues/` truth: `plan clause -> owning tk -> state -> dispatch/action -> gap`. If a clause has no owning `tk`, mark it as a gap instead of relying on chat memory.
+5. Before creating a new workflow doc, search the current truth source for the same scope. `task.sh new` only allocates an id; it is not a semantic deduplicator. Create a new `tk` only for work with independent scope, owner, verification, and closure value; tiny assertions, one-line hardening, or review nits attach to the current parent `tk` / `Completion Bar` or the next natural hardening task.
 6. Default to one agent pushing the mainline end-to-end. Do not split work into extra rounds unless the next step is truly blocked by review, user decision, risk confirmation, missing evidence, or a real role handoff.
 7. Default to one active task line in one dedicated worktree.
 8. When a compiled-app test, live repro, or runtime trace changes the understood root cause, task boundary, or ownership split, stop further implementation and update the controlling `tk` and any linked `rv` first. Do not continue coding on stale workflow truth.
@@ -143,6 +143,16 @@ Minimal checklist:
 - task worktree and local branch ready for cleanup
 
 If the parent `tk` is blocked, write a blocker brief in the parent or current progress file: `missing`, `impact`, `tried`, `unblock_action`.
+
+## Coverage Table Discipline
+
+Coverage tables are read-only snapshots, not a second ledger.
+
+- Generate the table from current `issues/` immediately before using it.
+- If the table disagrees with `issues/`, discard and regenerate it; never "fix" reality by editing the table.
+- Use `dispatch/action`, not a separate `ready?` column. Suggested values: `closed`, `active`, `dispatchable`, `blocked`, `gap`, `evidence-only`.
+- `dne` / `arvd` rows are `closed`; do not mark them "not ready".
+- Audit filing, raw review storage, and other process evidence are not plan clauses. Put them in `links` / `aidocs/agent-runs/` unless the workflow itself is the product change.
 
 ## Review Intake Router
 

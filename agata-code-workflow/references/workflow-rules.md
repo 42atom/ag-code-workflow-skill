@@ -14,7 +14,7 @@
 - 不让索引页承载状态真相
 - 文件名状态槽是唯一状态真相源
 - 默认单 agent 直推主链；阶段标签用于表达进度，不是审批闸门
-- 排单覆盖表只读，不承载状态；发现缺口先整理真相源，再进入实现
+- 排单覆盖表只读，不承载状态；必须从当前 `issues/` 生成；发现缺口先整理真相源，再进入实现
 - review 深度跟风险走；跨进程、持久化、状态机、生命周期、合同变更不能只靠浅层单测背书
 - 用户明确要求多 agent / 子代理时，主控 agent 可以派发实现和审阅，但主控 agent 仍是唯一裁决者
 - DAG 依赖边不进入状态槽；状态表达生命周期，依赖表达 ready 条件
@@ -111,9 +111,13 @@ state：
 - 综合审计经主控 triage 后，每条 finding 只能三种去向：`reject` 留在原始材料，`attach` 到已有父 issue 的 `rv`，或 `split` 成一个具体 `tk`
 - `docs/reviews/` 只接收有且只有一个父 issue 的 exchange message；`codex-recent-10h.rv001-r001-antigravity.md` 这类无父 issue 文件非法
 - 长任务执行过程、阶段性验证、接手信息，落 `docs/progress/`；不要让它们只留在聊天转发里
-- 批量从 `pl` 拆 `tk` 前，必须先输出只读覆盖表：`计划条款 -> 承接 tk -> 状态 -> depends_on -> ready? -> 缺口`
+- 批量从 `pl` 拆 `tk` 前，必须先输出只读覆盖表：`计划条款 -> 承接 tk -> 状态 -> dispatch/action -> 缺口`
 - 计划条款没有承接 `tk` 的，标为缺口；不得靠聊天记忆派实现
 - `tk` 只覆盖计划一部分时，必须写明剩余条款是另拆、延后，还是明确不做
+- 覆盖表必须按当前 `issues/` 重算；若表格与文件名状态冲突，表格作废，不得作为决策依据
+- `dispatch/action` 只写 `closed` / `active` / `dispatchable` / `blocked` / `gap` / `evidence-only`；已 `dne` / `arvd` 的行不写“否”
+- 审计材料归档、raw review 存放、links 整理属于过程证据，不是计划条款；除非目标就是修改 workflow，否则不要为它们单独拆 `tk`
+- 单独拆 `tk` 必须有独立范围、owner、验证和关闭价值；一行断言、小 hardening、review nit 应挂父 `tk` 的 `Completion Bar` 或并入下一张自然 hardening 单
 - 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/` 和相关记忆，确认不是同 scope 重复立项
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
 - `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
