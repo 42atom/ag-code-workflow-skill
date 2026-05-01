@@ -134,6 +134,29 @@ state：
 - `docs/plan/` 旧链接只作为 legacy 迁移材料容忍，不作为新规则样板
 - 迁移期 `task.sh check` 默认警告状态全名链接；设置 `AGATA_STRICT_STABLE_LINKS=1` 时失败
 
+默认 front matter：
+
+```yaml
+owner: user
+assignee: codex
+recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
+why: TODO
+scope: TODO
+risk: low
+accept: TODO
+memory: none
+depends_on: []
+links: []
+```
+
+规则：
+
+- `recap` 是一行 AAAK 风格索引，用来省上下文 token；不是第二套真相
+- `depends_on` 只写 DAG 前置边
+- `links` 只挂证据、参考、review/progress/memory 锚点或相关文档
+- 默认不写 `reviewer`；审阅者是运行时参与者，正式审阅事实在 `rv` 文件名和正文里
+- `claimed_*` 只在 `doi` claim 后出现；`code_version` / `verify` 只在收尾证据里出现
+
 DAG 依赖写法：
 
 ```yaml
@@ -300,7 +323,7 @@ handle,owner,engine,role,status,updated_at,note
 - 不记逐条流水账，不替代 `tk` / `rv`
 - 稳定的架构审查判断、冻结点、反复出现的风险规则，应在对后续对话仍有价值时写入 memory
 
-最小 front matter 扩展：
+记忆 front matter 扩展：
 
 - `memory: none | required | done`
 

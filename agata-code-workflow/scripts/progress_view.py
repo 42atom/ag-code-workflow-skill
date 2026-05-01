@@ -344,7 +344,7 @@ def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
     rel_path = path.resolve().relative_to(project_root.resolve())
     fallback_slug = match.group("slug") if match else path.stem
     title = first_heading(body) or humanize_slug(fallback_slug)
-    summary = frontmatter.get("why") or first_paragraph(body) or frontmatter.get("scope") or title
+    summary = frontmatter.get("recap") or frontmatter.get("why") or first_paragraph(body) or frontmatter.get("scope") or title
 
     normalized_links = []
     for raw in links:
@@ -377,7 +377,7 @@ def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
             "archived": "docs/reviews/archive/" in str(rel_path).replace("\\", "/"),
             "owner": frontmatter.get("owner", ""),
             "assignee": frontmatter.get("assignee", ""),
-            "reviewer": frontmatter.get("reviewer", ""),
+            "recap": frontmatter.get("recap", ""),
             "risk": frontmatter.get("risk", ""),
             "accept": frontmatter.get("accept", ""),
             "verify": frontmatter.get("verify", ""),
@@ -420,7 +420,7 @@ def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
             "archived": "docs/progress/archive/" in str(rel_path).replace("\\", "/"),
             "owner": frontmatter.get("owner", ""),
             "assignee": frontmatter.get("assignee", ""),
-            "reviewer": frontmatter.get("reviewer", ""),
+            "recap": frontmatter.get("recap", ""),
             "risk": frontmatter.get("risk", ""),
             "accept": frontmatter.get("accept", ""),
             "verify": frontmatter.get("verify", ""),
@@ -460,7 +460,7 @@ def parse_doc_file(path: Path, project_root: Path) -> dict[str, Any] | None:
         "archived": "issues/archive/" in str(rel_path).replace("\\", "/"),
         "owner": frontmatter.get("owner", ""),
         "assignee": frontmatter.get("assignee", ""),
-        "reviewer": frontmatter.get("reviewer", ""),
+        "recap": frontmatter.get("recap", ""),
         "risk": frontmatter.get("risk", ""),
         "accept": frontmatter.get("accept", ""),
         "verify": frontmatter.get("verify", ""),

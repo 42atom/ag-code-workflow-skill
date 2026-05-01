@@ -263,3 +263,5 @@ Do not:
 2. replace filename state with AAAK `态`
 3. compress command sequences into unreadable dense lines
 4. drop source just to save tokens
+
+Allowed exception: front matter may contain one AAAK-style `recap` index, for example `态:tdo|核:...|界:...|验:...|下:...`. It does not replace `accept`, `depends_on`, `links`, or review evidence.

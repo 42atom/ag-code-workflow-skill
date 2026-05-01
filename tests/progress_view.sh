@@ -77,7 +77,6 @@ write_file "$project_root/issues/tk10001.doi.runtime.viewer-test.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: validate the progress viewer
 scope: render one active task
 risk: low
@@ -92,7 +91,6 @@ write_file "$project_root/issues/pl10001.tdo.runtime.viewer-plan.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: same anchor should show derived relations
 scope: one plan doc
 risk: low
@@ -106,7 +104,6 @@ write_file "$project_root/issues/tk10003.tdo.runtime.viewer-dag-node.p1.md" <<'E
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: tdo can be DAG-blocked without becoming cand
 scope: render dependency readiness
 risk: low
@@ -159,7 +156,6 @@ write_file "$project_root/issues/archive/2026/tk10002.arvd.runtime.viewer-archiv
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: validate archive grouping
 scope: one archived task
 risk: low

@@ -197,6 +197,7 @@ Keep this split:
 
 - filename -> workflow state truth
 - front matter -> control fields (`owner`, `accept`, `verify`, etc.)
+- front matter `recap` -> one-line AAAK-style context index
 - AAAK block -> dense semantic summary
 - normal markdown -> commands, exceptions, long explanations
 

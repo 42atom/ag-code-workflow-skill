@@ -120,6 +120,18 @@ Do not invent a second state system. The filename state slot is the truth source
 63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
 
+## Frontmatter Recap
+
+Default issue frontmatter stays small:
+
+- `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`
+- `recap` is a one-line AAAK-style index: `态:<state>|核:<point>|界:<scope>|验:<gate>|下:<next>`
+- `recap` compresses reading context; it does not override filename state, `accept`, `depends_on`, or review evidence.
+- `depends_on` is only for required DAG predecessors.
+- `links` is only for evidence, references, review anchors, progress anchors, memory anchors, or related docs.
+- Do not put `reviewer` in default `tk` / `pl` / `rs` / `rf` frontmatter. Reviewers are runtime participants; review truth lives in `rv` records.
+- `claimed_*`, `code_version`, and `verify` are state or closure evidence fields. Do not add them to fresh `tdo` templates.
+
 ## Completion Bar
 
 Put the close-out checklist in the parent `tk`, not in `docs/progress/`.

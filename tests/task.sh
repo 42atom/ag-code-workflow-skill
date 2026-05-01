@@ -131,7 +131,6 @@ write_file "$project_root/issues/tk10001.dne.runtime.archive-me.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: archive lookup should keep history reachable
 scope: archive one task
 risk: low
@@ -160,7 +159,6 @@ write_file "$project_root/issues/tk10011.arvd.runtime.archive-residue.p1.md" <<'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: root-level arvd files should not survive after archive
 scope: detect half-migrated archive residue
 risk: low
@@ -192,7 +190,6 @@ write_file "$project_root/issues/tk10030.tdo.runtime.clean-active-target.p1.md" 
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: active issues remain the banned-term target
 scope: prove docs plan is legacy-only
 risk: low
@@ -210,7 +207,6 @@ write_file "$project_root/issues/tk10031.tdo.runtime.banned-active-target.p1.md"
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: forbidden-shim in active issue should still fail
 scope: prove active issue remains checked
 risk: low
@@ -233,7 +229,6 @@ write_file "$project_root/issues/tk10040.tdo.runtime.progress-parent.p1.md" <<'E
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: progress files should hang off a parent task
 scope: validate docs/progress helper
 risk: low
@@ -280,7 +275,6 @@ write_file "$project_root/issues/tk10041.dne.runtime.closed-parent.p1.md" <<'EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: closed parent cannot keep open progress
 scope: validate progress drain rule
 risk: low
@@ -344,7 +338,6 @@ write_file "$project_root/issues/tk10002.rvw.runtime.retired-state.p1.md" <<'EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: rvw is retired as a task state
 scope: reject retired state residue
 risk: low
@@ -367,7 +360,6 @@ write_file "$project_root/issues/tk0003.doi.runtime.no-rvw-target.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: rvw must no longer be a legal target state
 scope: reject new moves into rvw
 risk: low
@@ -392,7 +384,6 @@ write_file "$project_root/issues/tk10006.rvw.runtime.legacy-review.p1.md" <<'EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: old projects need a direct escape from retired rvw
 scope: migrate old rvw tasks back to doi
 risk: low
@@ -415,7 +406,6 @@ write_file "$project_root/issues/pl10006.rvw.model.legacy-plan-review.p2.md" <<'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: old projects may have non-task docs stranded in retired rvw
 scope: migrate old rvw plans to a legal terminal state
 risk: low
@@ -438,7 +428,6 @@ write_file "$project_root/issues/tk10004.dne.runtime.memory-anchor.p1.md" <<'EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: memory gate should require an explicit anchor
 scope: close task with memory gate
 risk: low
@@ -483,7 +472,6 @@ write_file "$project_root/issues/tk0001.tdo.runtime.numeric-collision-four.p1.md
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: bare numeric ids must stay unique
 scope: detect 4-digit and 5-digit collisions
 risk: low
@@ -496,7 +484,6 @@ write_file "$project_root/issues/tk00001.tdo.runtime.numeric-collision-five.p1.m
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: bare numeric ids must stay unique
 scope: detect 4-digit and 5-digit collisions
 risk: low
@@ -519,7 +506,6 @@ write_file "$project_root/issues/tk10005.tdo.runtime.five-digit-pass.p1.md" <<'E
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: 5-digit ids should work across task and review lookup
 scope: prove 5-digit task and review ids
 risk: low
@@ -555,7 +541,6 @@ write_file "$project_root/issues/tk10018.tdo.runtime.legacy-rp-review-anchor.p1.
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: legacy repos may still carry rp review docs under issues
 scope: keep stable rp anchors valid during migration
 risk: low
@@ -582,7 +567,6 @@ write_file "$project_root/issues/tk10016.tdo.runtime.stateful-link-source.p1.md"
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: links must use stable id anchors
 scope: reject stateful filenames in links
 risk: low
@@ -596,7 +580,6 @@ write_file "$project_root/issues/tk10017.tdo.runtime.stateful-link-target.p1.md"
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: stateful link target fixture
 scope: provide a file that should not be linked by full name
 risk: low
@@ -619,7 +602,6 @@ write_file "$project_root/issues/tk10009.doi.runtime.issue-scoped-review.p1.md" 
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: review messages should encode parent issue and thread in the filename
 scope: create one issue-scoped rv message
 risk: low
@@ -636,6 +618,7 @@ run_task "$project_root" review tk10009 rv001 r001-gemini
 assert_eq "$task_status" "0" "review command should create issue-scoped rv docs"
 assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-gemini.md" "review command should encode task, thread, round, and author"
 [[ -f "$task_stdout" ]] || fail "review command should create the rv file"
+! grep -q '^reviewer:' "$task_stdout" || fail "review docs should not include static reviewer"
 
 run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid issue-scoped rv docs"
@@ -659,7 +642,6 @@ write_file "$project_root/issues/pl10010.doi.runtime.plan-review.p2.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: plans also need pre-implementation review evidence
 scope: create one plan-scoped rv message
 risk: low
@@ -694,7 +676,6 @@ write_file "$project_root/docs/reviews/tk10010.rv001-r001-gemini.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: orphan review docs should fail loudly
 scope: reject rv docs without parent issue
 risk: low
@@ -744,7 +725,6 @@ write_file "$project_root/issues/tk10013.dne.runtime.completed-prereq.p1.md" <<'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: completed prerequisite
 scope: dependency target
 risk: low
@@ -757,7 +737,6 @@ write_file "$project_root/issues/tk10014.tdo.runtime.waiting-on-prereq.p1.md" <<
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: required future work can wait in tdo
 scope: dependency source
 risk: low
@@ -777,7 +756,6 @@ write_file "$project_root/issues/tk10015.tdo.runtime.missing-prereq.p1.md" <<'EO
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: missing DAG target should fail loudly
 scope: dependency source
 risk: low
@@ -825,6 +803,9 @@ assert_eq "$task_status" "0" "new tk should succeed in shared root checkout"
 assert_eq "$task_stdout" "$project_root/issues/tk0001.tdo.runtime.sample-created.p1.md" "new tk should allocate first 4-digit id"
 [[ -f "$task_stdout" ]] || fail "new tk should create the file"
 grep -q "memory: none" "$task_stdout" || fail "new tk should include default memory mode"
+grep -Fqx 'recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"' "$task_stdout" || fail "new tk should include default recap index"
+grep -Fqx 'depends_on: []' "$task_stdout" || fail "new tk should include default dependency list"
+! grep -q '^reviewer:' "$task_stdout" || fail "new tk should not include static reviewer"
 [[ ! -d "$project_root/.agata-new-id.lock" ]] || fail "new should release the id allocation lock"
 
 run_task "$project_root" new pl product sample-plan
@@ -856,7 +837,6 @@ write_file "$project_root/issues/tk10008.doi.runtime.truth-edit-drift.p1.md" <<'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: linked worktrees must not edit truth files directly
 scope: fail check on local truth drift
 risk: low
@@ -897,7 +877,6 @@ write_file "$project_root/issues/tk10013.doi.runtime.stale-claim.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: stale doi claims should surface during check
 scope: warn on zombie lock candidates
 risk: low
@@ -913,7 +892,6 @@ write_file "$project_root/issues/tk10014.doi.runtime.missing-claim.p1.md" <<'EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: missing claim timestamps should also surface
 scope: warn on malformed doi metadata
 risk: low
@@ -926,7 +904,6 @@ write_file "$project_root/issues/tk10015.doi.runtime.generic-claimant-without-th
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: generic engine claimants need a thread marker
 scope: warn when same-engine concurrency cannot be disambiguated
 risk: low
@@ -955,7 +932,6 @@ write_file "$project_root/issues/tk10024.doi.runtime.control-plane-check-stale.p
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: linked check must not judge stale doi from an old mirror
 scope: semantic checks should read the control plane
 risk: low
@@ -990,7 +966,6 @@ write_file "$project_root/issues/tk10025.tdo.runtime.control-plane-check-duplica
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: linked check must judge duplicate ids from the control plane
 scope: duplicate detection should not use stale mirror-only view
 risk: low
@@ -1009,7 +984,6 @@ write_file "$project_root/issues/tk10025.doi.runtime.control-plane-check-duplica
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: duplicate id exists only on the control plane branch history
 scope: make sure linked check still sees the collision
 risk: low
@@ -1034,7 +1008,6 @@ write_file "$project_root/issues/tk10007.tdo.runtime.control-plane-move.p1.md" <
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: workflow state changes should route through the shared control plane
 scope: linked worktrees should not mutate their local truth mirror
 risk: low
@@ -1072,7 +1045,6 @@ write_file "$project_root/issues/tk10012.dne.runtime.control-plane-archive.p1.md
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: archive should land on the shared control plane even when called from a linked worktree
 scope: route archive through the authoritative checkout
 risk: low
@@ -1104,7 +1076,6 @@ write_file "$project_root/issues/tk10020.doi.runtime.prune-live-claim.p1.md" <<'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: prune must not silently delete an active claim
 scope: block cleanup while doi lock is still held
 risk: low
@@ -1135,7 +1106,6 @@ write_file "$project_root/issues/tk10021.bkd.runtime.prune-frozen-worktree.p1.md
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: blocked tasks may intentionally keep a frozen worktree
 scope: block prune on bkd state
 risk: low
@@ -1165,7 +1135,6 @@ write_file "$project_root/issues/tk10026.dne.runtime.prune-self-destruct-guard.p
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: prune should not remove the directory the current shell is standing in
 scope: block self-destructing prune calls from the target worktree
 risk: low
@@ -1202,7 +1171,6 @@ write_file "$project_root/issues/tk10022.dne.runtime.prune-landed-worktree.p1.md
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: landed task worktrees should be removable from the control plane
 scope: delete linked worktree and its local branch after reconciliation
 risk: low
@@ -1250,7 +1218,6 @@ write_file "$project_root/issues/tk10023.dne.runtime.prune-unlanded-worktree.p1.
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: cleanup must stop if code still lives only in the task branch
 scope: block prune on outstanding execution diff
 risk: low
@@ -1295,7 +1262,6 @@ write_file "$project_root/issues/tk10058.tdo.runtime.stranded-worktree.p1.md" <<
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: orphan-scan should catch untracked truth in current worktree
 scope: detect stranded truth before cleanup
 risk: low
@@ -1318,7 +1284,6 @@ write_file "$project_root/issues/tk10059.tdo.runtime.progress-truth.p1.md" <<'EO
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: docs/progress should not strand in worktrees
 scope: validate progress truth scan
 risk: low
@@ -1353,7 +1318,6 @@ write_file "$project_root/issues/pl10042.tdo.runtime.stranded-plan.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: orphan-scan should catch branch-only plan truth
 scope: detect truth stranded in another branch
 risk: low

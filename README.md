@@ -31,6 +31,7 @@ Use it when you want a lightweight file-based workflow instead of a separate iss
 - task worktree closure and mainline-drain discipline
 - primary-agent dispatch with sub-agent failure takeover
 - task DAG dependencies via `depends_on` without adding states
+- compact `recap` frontmatter without static reviewer fields
 
 ## Install
 
@@ -96,6 +97,7 @@ Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r001-cod
 During migration, `task.sh check` warns on old stateful links by default. Use `AGATA_STRICT_STABLE_LINKS=1 task.sh check` to turn the warning into a failure.
 `docs/plan/` is legacy-only. New plans go to `issues/pl...`; still-relevant old plans should be migrated there, and the rest archived under `docs/archive/legacy-plan/`.
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
+Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
 
 No shadow database. No second state system.
 Use `aidocs/` for raw materials, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated workflow views. It is not a truth source and should not carry task state, review conclusions, or project memory.

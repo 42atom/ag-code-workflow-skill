@@ -755,7 +755,6 @@ write_new_issue_doc() {
 ---
 owner: user
 assignee: codex
-reviewer: user
 why: TODO
 scope: TODO
 risk: low
@@ -780,12 +779,13 @@ EOF
 ---
 owner: user
 assignee: codex
-reviewer: user
+recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO
 risk: low
 accept: TODO
 memory: none
+depends_on: []
 links: []
 ---
 
