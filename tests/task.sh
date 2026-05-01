@@ -708,6 +708,35 @@ assert_contains "$task_stderr" "issue file not found for tk10010" "check should 
 
 rm -rf "$project_root"
 
+######## comprehensive audits without one parent issue belong in aidocs
+
+project_root="$(make_project)"
+write_file "$project_root/docs/reviews/codex-recent-10h.rv001-r001-antigravity.md" <<'EOF'
+# Codex Recent 10h Antigravity Review
+
+This is a cross-task comprehensive audit, not one issue-scoped review exchange.
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should reject unscoped comprehensive audits in docs/reviews"
+assert_contains "$task_stderr" "unscoped review/audit belongs in aidocs/agent-runs" "check should route comprehensive audits to aidocs"
+
+rm -rf "$project_root"
+
+project_root="$(make_project)"
+mkdir -p "$project_root/aidocs/agent-runs"
+write_file "$project_root/aidocs/agent-runs/codex-recent-10h.review-antigravity-20260501.md" <<'EOF'
+# Codex Recent 10h Antigravity Review
+
+This is raw comprehensive audit material. Triage may later reject, attach, or split findings.
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept comprehensive audits in aidocs staging"
+assert_eq "$task_stdout" "ok" "aidocs comprehensive audit should not trip review checks"
+
+rm -rf "$project_root"
+
 ######## depends_on should validate issue DAG edges without new states
 
 project_root="$(make_project)"

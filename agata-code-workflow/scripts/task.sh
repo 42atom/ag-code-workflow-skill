@@ -1337,6 +1337,9 @@ check_rp_names() {
     if [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
       continue
     fi
+    if [[ "$base" =~ \.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
+      die "unscoped review/audit belongs in aidocs/agent-runs, not docs/reviews: $file"
+    fi
     [[ "$base" =~ ^rp${ID_DIGITS_RE}\.(tdo|doi|dne|bkd|cand|arvd)\.[a-z0-9-]+\.(review-r[0-9]+-[a-z0-9-]+|reply-r[0-9]+-[a-z0-9-]+)\.md$ ]] \
       || die "invalid review filename: $file"
   done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort)

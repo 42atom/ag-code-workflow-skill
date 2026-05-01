@@ -107,6 +107,9 @@ state：
 - 未来必做但依赖未满足，仍落 `tk.tdo`，用 `depends_on` 写前置；不得用 `cand` 表示 DAG 等待
 - 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/`、`docs/` 或产品资源目录
 - 子代理原始输出、失败记录、半成品回传，先放 `aidocs/agent-runs/`；只有主控 agent 裁决后，才提升到 `tk` / `rv` / memory / mainline
+- 综合审计、最近 N 小时审计、全仓审计、跨任务 review、没有唯一父 issue 的审阅，先放 `aidocs/agent-runs/`；它们是低信任审计材料，不是正式 review
+- 综合审计经主控 triage 后，每条 finding 只能三种去向：`reject` 留在原始材料，`attach` 到已有父 issue 的 `rv`，或 `split` 成一个具体 `tk`
+- `docs/reviews/` 只接收有且只有一个父 issue 的 exchange message；`codex-recent-10h.rv001-r001-antigravity.md` 这类无父 issue 文件非法
 - 长任务执行过程、阶段性验证、接手信息，落 `docs/progress/`；不要让它们只留在聊天转发里
 - 批量从 `pl` 拆 `tk` 前，必须先输出只读覆盖表：`计划条款 -> 承接 tk -> 状态 -> depends_on -> ready? -> 缺口`
 - 计划条款没有承接 `tk` 的，标为缺口；不得靠聊天记忆派实现
@@ -328,6 +331,7 @@ handle,owner,engine,role,status,updated_at,note
 - `rv` 不替代 `tk`
 - 新增 review 默认使用 `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`
 - 旧 `rpNNNN` 只作历史兼容；不再作为新增 review 主线
+- 综合审计不写 `rv`，除非主控已经把某条 finding 绑定到一个具体父 issue
 - review 结论要回写到 `tk`
 - review 是 `rv` 证据链，不是 `tk` 状态；`tk` 保持在 `doi` 直到 owner 修完阻断并关闭
 - review 按风险排深度；跨进程通信、持久化、状态机、生命周期、合同变更优先深审，纯投影或纯 UI 可轻审

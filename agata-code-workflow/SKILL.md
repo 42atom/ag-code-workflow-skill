@@ -144,6 +144,16 @@ Minimal checklist:
 
 If the parent `tk` is blocked, write a blocker brief in the parent or current progress file: `missing`, `impact`, `tried`, `unblock_action`.
 
+## Review Intake Router
+
+Formal `rv` files need one existing parent issue.
+
+- Single-issue review: write `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`.
+- Comprehensive audit: write `aidocs/agent-runs/<scope>.review-<agent>-<date>.md`.
+- Examples of comprehensive audit: recent-N-hours review, whole-repo audit, cross-task review, broad architecture critique, or any review whose target is not exactly one `tk` / `pl` / `rs` / `rf`.
+- Comprehensive audit is raw material. It cannot block, approve, or close a task by itself.
+- Primary triage is the promotion gate. Each finding becomes one of: `reject`, `attach` to an existing parent `rv`, or `split` into a concrete `tk`.
+
 ## Control-Plane Concurrency
 
 - A passing `task.sh check` is a semantic verdict, not an ownership verdict. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
