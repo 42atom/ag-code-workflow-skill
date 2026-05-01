@@ -356,8 +356,10 @@ review 命名规则：
 
 - 审核时允许使用 `git worktree` 拉出独立工作目录，避免和实现中的工作区互相打架
 - `worktree` 只是隔离执行环境，不是第二套任务真相源；状态、结论、往返记录仍回写 `tk` / `rv`
-- 若该审核工作树对应的源码、锁文件或配置与主工作区不同，依赖安装、生成物和验证动作必须跟随该 `worktree`
-- 不允许拿 A 工作树的依赖结果去替 B 工作树背书
+- 当前 worktree 必须使用本地依赖面验证；不允许拿 A 工作树的 `node_modules`、生成物或验证结果给 B 工作树背书
+- 不要求每次机械重装依赖；先判断当前 worktree 的 `node_modules` / tool binary 是否存在且与 lockfile 匹配
+- 若依赖缺失或 stale，再在当前 worktree 内跑确定性安装：`pnpm install --frozen-lockfile` / `npm ci` / `yarn install --frozen-lockfile`
+- npm/pnpm/yarn 全局缓存可复用；缓存不是验证真相，当前 worktree 的依赖树才是验证面
 
 工作树语义规则：
 
