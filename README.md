@@ -100,6 +100,7 @@ During migration, `task.sh check` warns on old stateful links by default. Use `A
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
 Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
 `issues/` root is the live working set plus the latest done buffer. After close-out, run `task.sh archive-done --keep 8`; it moves older `.dne.` issue docs into `issues/archive/YYYY/` without changing their state. Directory location says cold history; filename state still says lifecycle. `task.sh check` never does this automatically.
+Selective reading: default to `issues/` root plus direct anchors. Helpers may scan archive paths for ids and validation, but agents should not bulk-read archived bodies unless a direct anchor, regression, duplicate-scope check, or user history request requires it.
 
 No shadow database. No second state system.
 Use `aidocs/` for raw materials, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated workflow views. It is not a truth source and should not carry task state, review conclusions, or project memory.

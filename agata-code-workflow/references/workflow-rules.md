@@ -35,6 +35,8 @@
 - `active-mainline.md` 只做导航，不承载状态
 - `issues/` 根目录是 live working set 加最近 `dne` 缓冲；旧 `dne` 物理归档到 `issues/archive/YYYY/`，状态仍保持 `dne`
 - 目录表达冷热层，文件名状态槽表达生命周期；不要因为文件进了 archive 目录就再改状态槽
+- 默认读取面只包括 `issues/` 根目录、当前 controlling issue、同父 `rv` / progress、相关 memory 锚点；不得无触发全量读取 archive 正文
+- 工具可以扫描 archive 路径做 id、唯一性、依赖和链接校验；路径扫描不是正文阅读
 - 状态变更只改 `tk` 文件名，不靠正文或索引页
 - 若目标项目要偏离这条真相路径，必须有项目级 `AGENTS.md` / `CLAUDE.md` 或当前控制面真相的明确证据；零散历史文件不足以推翻共享规则
 
@@ -121,6 +123,7 @@ state：
 - 审计材料归档、raw review 存放、links 整理属于过程证据，不是计划条款；除非目标就是修改 workflow，否则不要为它们单独拆 `tk`
 - 单独拆 `tk` 必须有独立范围、owner、验证和关闭价值；一行断言、小 hardening、review nit 应挂父 `tk` 的 `Completion Bar` 或并入下一张自然 hardening 单
 - 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/` 和相关记忆，确认不是同 scope 重复立项
+- 去重先看 live root 与 memory；只有 direct anchor、回归考古、用户问历史、或根目录加 memory 仍无法判定时，才打开 archive 正文
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
 - `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
 - 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现

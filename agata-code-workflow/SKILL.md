@@ -47,7 +47,7 @@ Do not invent a second state system. The filename state slot is the truth source
 
 ## Workflow
 
-1. Read existing `issues/` and related review files before creating anything new.
+1. Read the live root issues and direct anchors before creating anything new. Do not bulk-read archived issue bodies.
 2. Choose the file kind by phase:
    - discussion not settled -> `pl`
    - fact-finding or feasibility -> `rs`
@@ -120,6 +120,25 @@ Do not invent a second state system. The filename state slot is the truth source
 63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
 65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 8` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state. Directory location expresses hot/cold storage; the filename state slot still expresses lifecycle.
+
+## Selective Reading
+
+Default read surface:
+
+- `issues/` root, max depth 1
+- the current controlling `tk` / `pl` / `rs` / `rf`
+- same-parent `rv` records for the current issue
+- same-parent progress records for the current task
+- relevant anchors in `refs/project-memory-aaak.md`
+
+Do not bulk-read:
+
+- `issues/archive/`
+- historical review bodies
+- historical progress bodies
+- old issue bodies unrelated to the current anchor set
+
+Tools may scan cold paths for ids, uniqueness, dependency existence, and link validation. Path scanning is not body reading. Open archived bodies only when a direct `links` / `depends_on` / memory anchor points there, when debugging a regression, when root-plus-memory cannot resolve duplicate scope, or when the user asks for history.
 
 ## Frontmatter Recap
 
