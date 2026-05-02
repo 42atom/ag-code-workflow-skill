@@ -437,6 +437,7 @@ usage:
   task.sh show <task-id>
   task.sh move <issue-id> <state>
   task.sh archive <task-id>
+  task.sh archive-done [--keep N]
   task.sh prune <task-id> <base-ref>
   task.sh check
   task.sh orphan-scan <base-ref> [filter]
@@ -1211,6 +1212,54 @@ cmd_archive() {
   echo "$archived_file"
 }
 
+cmd_archive_done() {
+  local root="$1"
+  local keep="$2"
+  local year archive_dir
+
+  assert_control_plane_checkout "$root" "archive-done"
+  [[ "$keep" =~ ^[0-9]+$ ]] || die "keep must be a non-negative integer"
+
+  year="$(date +%Y)"
+  archive_dir="$root/issues/archive/${year}"
+  mkdir -p "$archive_dir"
+
+  python3 - "$root" "$archive_dir" "$keep" <<'PY'
+from pathlib import Path
+import re
+import shutil
+import sys
+
+root = Path(sys.argv[1])
+archive_dir = Path(sys.argv[2])
+keep = int(sys.argv[3])
+pattern = re.compile(r"^(?P<kind>tk|pl|rs|rf)(?P<digits>\d{4,5})\.dne\..*\.md$")
+
+done_docs = []
+for path in sorted((root / "issues").glob("*.dne.*.md")):
+    match = pattern.match(path.name)
+    if not match or not path.is_file():
+        continue
+    done_docs.append((int(match.group("digits")), match.group("kind"), path.name, path))
+
+done_docs.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+to_archive = done_docs[keep:]
+
+moved = []
+for _, _, _, src in to_archive:
+    dst = archive_dir / src.name
+    if dst.exists():
+        raise SystemExit(f"error: archive target already exists: {dst}")
+    shutil.move(str(src), str(dst))
+    moved.append(str(dst))
+
+if moved:
+    print("\n".join(moved))
+else:
+    print("ok")
+PY
+}
+
 assert_prune_target_clean() {
   local worktree_path="$1"
   local task_id="$2"
@@ -1946,6 +1995,22 @@ main() {
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -eq 2 ]] || die "usage: task.sh archive <task-id>"
       cmd_archive "$control_root" "$2"
+      ;;
+    archive-done)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      case "$#" in
+        1)
+          cmd_archive_done "$control_root" "8"
+          ;;
+        3)
+          [[ "$2" == "--keep" ]] || die "usage: task.sh archive-done [--keep N]"
+          cmd_archive_done "$control_root" "$3"
+          ;;
+        *)
+          die "usage: task.sh archive-done [--keep N]"
+          ;;
+      esac
       ;;
     prune)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"

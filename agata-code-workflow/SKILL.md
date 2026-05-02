@@ -110,7 +110,7 @@ Do not invent a second state system. The filename state slot is the truth source
 53. Do not create a review branch or review worktree before both the controlling `tk` and the intended review-round truth exist.
 54. Branch names should express workflow role, not agent identity. Prefer `task/tkNNNN-<slug>`, `review/tkNNNN-<slug>`, `salvage/<name>`, and `release/<version>` unless the project defines a stricter local convention.
 55. Keep task, review, and salvage worktrees outside the repository directory, under a project-level worktree root when one is defined. Do not hide execution worktrees inside the repo being edited.
-56. Close code tasks in this order: finish implementation and verification in the dedicated worktree, land code on the target mainline branch, move the controlling task to `dne`, then clean up that task's worktree and local branch.
+56. Close code tasks in this order: finish implementation and verification in the dedicated worktree, land code on the target mainline branch, move the controlling task to `dne`, run `task.sh archive-done --keep 8`, then clean up that task's worktree and local branch.
 57. `dne` is not valid while the implementation only exists in a task worktree; code changes must already be drained into the target mainline branch.
 58. Test files must not grab a workflow id before the controlling `tk` exists. Regression or source-lock tests that serve an existing task should reuse the owner task id or use non-task-id naming.
 59. New IPC, event, channel, protocol, projection, or cross-boundary contract work must name three roles before implementation: who defines it, who produces it, and who consumes it. Missing producer or consumer ownership is a plan gap, not an implementation detail.
@@ -119,6 +119,7 @@ Do not invent a second state system. The filename state slot is the truth source
 62. Never conclude verification from a mixed runtime (old process + new code). Exit old processes first, then run verification on the new build/runtime only.
 63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
+65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 8` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state.
 
 ## Frontmatter Recap
 
@@ -153,6 +154,7 @@ Minimal checklist:
 - implementation drained to target mainline
 - `task.sh check` pass
 - task worktree and local branch ready for cleanup
+- `archive-done --keep 8` run when root `dne` buffer exceeds the warm cache
 
 If the parent `tk` is blocked, write a blocker brief in the parent or current progress file: `missing`, `impact`, `tried`, `unblock_action`.
 
@@ -223,12 +225,13 @@ Current commands:
 - `task.sh show <task-id>`
 - `task.sh move <issue-id> <state>`
 - `task.sh archive <task-id>`
+- `task.sh archive-done [--keep N]`
 - `task.sh prune <task-id> <base-ref>`
 - `task.sh check`
 - `task.sh orphan-scan <base-ref> [filter]`
 - `progress_view.py [--project-root <path>] [--no-open]`
 
-Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, and memory-gated close checks.
+Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, done-buffer cleanup, and memory-gated close checks.
 For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author>`; do not allocate global review ids for new work.
 Read a review thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
@@ -239,6 +242,7 @@ For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, 
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
 Use `task.sh orphan-scan` when you need current-worktree truth drift plus shared-ref comparison before cleanup or recovery.
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die. It re-checks workflow truth, blocks `doi` / `bkd`, and only removes a single linked worktree whose execution diff is already drained against the chosen base ref. It also refuses to delete the worktree that contains the current shell cwd.
+Use `task.sh archive-done --keep 8` as the final close-out cleanup step. It is explicit and never runs from `task.sh check`.
 Use `progress_view.py` when the user wants a dense read-only HTML view of current workflow status and history.
 Do not extend it into a scheduler, indexer, or ownership service unless the user explicitly asks.
 

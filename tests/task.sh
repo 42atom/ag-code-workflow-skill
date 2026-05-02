@@ -152,6 +152,64 @@ assert_eq "$task_stdout" "$archived_path" "find should resolve archived task pat
 
 rm -rf "$project_root"
 
+######## archive-done should keep only the warm done buffer in issues root
+
+project_root="$(make_project)"
+for digits in 10001 10002 10003 10004 10005; do
+  write_file "$project_root/issues/tk${digits}.dne.runtime.done-${digits}.p1.md" <<EOF
+---
+owner: user
+assignee: codex
+why: done buffer fixture ${digits}
+scope: prove archive-done keeps only recent done docs
+risk: low
+accept: older dne docs move to archive without changing state
+memory: none
+links: []
+---
+EOF
+done
+write_file "$project_root/issues/pl10006.dne.product.done-plan.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: done plan also belongs to the done buffer
+scope: prove archive-done applies to issue docs, not only tk
+risk: low
+accept: older done issue docs move physically
+links: []
+---
+EOF
+write_file "$project_root/issues/tk10007.tdo.runtime.live-task.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: live tasks must stay in root
+scope: prove archive-done ignores active states
+risk: low
+accept: tdo remains in issues root
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" archive-done --keep 3
+assert_eq "$task_status" "0" "archive-done should succeed"
+archive_year="$(date +%Y)"
+assert_contains "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10001.dne.runtime.done-10001.p1.md" "archive-done should move oldest done task"
+assert_contains "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10003.dne.runtime.done-10003.p1.md" "archive-done should move done docs beyond keep count"
+[[ -f "$project_root/issues/pl10006.dne.product.done-plan.md" ]] || fail "archive-done should keep highest-id done issue in root"
+[[ -f "$project_root/issues/tk10005.dne.runtime.done-10005.p1.md" ]] || fail "archive-done should keep recent done task in root"
+[[ -f "$project_root/issues/tk10004.dne.runtime.done-10004.p1.md" ]] || fail "archive-done should keep recent done task in root"
+[[ -f "$project_root/issues/tk10007.tdo.runtime.live-task.p1.md" ]] || fail "archive-done should ignore live task states"
+[[ -f "$project_root/issues/archive/${archive_year}/tk10001.dne.runtime.done-10001.p1.md" ]] || fail "archive-done should preserve dne state in archive"
+
+run_task "$project_root" archive-done --keep nope
+assert_eq "$task_status" "1" "archive-done should reject invalid keep values"
+assert_contains "$task_stderr" "keep must be a non-negative integer" "archive-done should explain invalid keep"
+
+rm -rf "$project_root"
+
 ######## root-level arvd residue should fail check
 
 project_root="$(make_project)"

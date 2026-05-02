@@ -81,6 +81,7 @@ Common commands:
 ./agata-code-workflow/scripts/task.sh move 10061 doi
 ./agata-code-workflow/scripts/task.sh move pl10062 doi
 ./agata-code-workflow/scripts/task.sh archive 10061
+./agata-code-workflow/scripts/task.sh archive-done --keep 8
 ./agata-code-workflow/scripts/task.sh prune 10061 origin/main
 ./agata-code-workflow/scripts/task.sh check
 ./agata-code-workflow/scripts/task.sh orphan-scan origin/main
@@ -98,6 +99,7 @@ During migration, `task.sh check` warns on old stateful links by default. Use `A
 `docs/plan/` is legacy-only. New plans go to `issues/pl...`; still-relevant old plans should be migrated there, and the rest archived under `docs/archive/legacy-plan/`.
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
 Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
+`issues/` root is the live working set plus the latest done buffer. After close-out, run `task.sh archive-done --keep 8`; it moves older `.dne.` issue docs into `issues/archive/YYYY/` without changing their state. `task.sh check` never does this automatically.
 
 No shadow database. No second state system.
 Use `aidocs/` for raw materials, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated workflow views. It is not a truth source and should not carry task state, review conclusions, or project memory.
