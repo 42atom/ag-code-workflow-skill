@@ -34,6 +34,7 @@
 - `aidocs/` 只作 AI 协作暂存区，不是真相源，不参与 workflow id、状态、review、memory 判断
 - `active-mainline.md` 只做导航，不承载状态
 - `issues/` 根目录是 live working set 加最近 `dne` 缓冲；旧 `dne` 物理归档到 `issues/archive/YYYY/`，状态仍保持 `dne`
+- 目录表达冷热层，文件名状态槽表达生命周期；不要因为文件进了 archive 目录就再改状态槽
 - 状态变更只改 `tk` 文件名，不靠正文或索引页
 - 若目标项目要偏离这条真相路径，必须有项目级 `AGENTS.md` / `CLAUDE.md` 或当前控制面真相的明确证据；零散历史文件不足以推翻共享规则
 
@@ -484,6 +485,7 @@ review 命名规则：
 - `check` 发现根目录 `tk*.arvd.*.md` 时必须失败
 - `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 8`
 - `archive-done` 只做物理归档，不把 `.dne.` 改成 `.arvd.`
+- `issues/archive/YYYY/` 已经说明文件是冷历史；不需要再用文件名重复表达“已归档”
 - `task.sh check` 不自动移动 `dne` 文件，最多由操作者显式清理上下文
 
 ## 9. 提交规范

@@ -119,7 +119,7 @@ Do not invent a second state system. The filename state slot is the truth source
 62. Never conclude verification from a mixed runtime (old process + new code). Exit old processes first, then run verification on the new build/runtime only.
 63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
-65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 8` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state.
+65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 8` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state. Directory location expresses hot/cold storage; the filename state slot still expresses lifecycle.
 
 ## Frontmatter Recap
 
@@ -242,7 +242,7 @@ For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, 
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
 Use `task.sh orphan-scan` when you need current-worktree truth drift plus shared-ref comparison before cleanup or recovery.
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die. It re-checks workflow truth, blocks `doi` / `bkd`, and only removes a single linked worktree whose execution diff is already drained against the chosen base ref. It also refuses to delete the worktree that contains the current shell cwd.
-Use `task.sh archive-done --keep 8` as the final close-out cleanup step. It is explicit and never runs from `task.sh check`.
+Use `task.sh archive-done --keep 8` as the final close-out cleanup step. It is explicit and never runs from `task.sh check`. Do not rename `.dne.` to `.arvd.` merely because a completed issue moved under `issues/archive/`; the archive directory already says it is cold history.
 Use `progress_view.py` when the user wants a dense read-only HTML view of current workflow status and history.
 Do not extend it into a scheduler, indexer, or ownership service unless the user explicitly asks.
 
