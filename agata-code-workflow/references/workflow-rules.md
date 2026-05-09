@@ -80,7 +80,8 @@ state：
 
 - `id` 永远在最前
 - `id` 支持 4 位或 5 位数字；现有 4 位文件无需迁移
-- 同一项目内不允许裸数字碰撞；禁止 `tk0001` 与 `tk00001` 共存
+- `kind` 是编号命名空间；允许 `tk0001` 与 `pl0001` 共存
+- 同一 `kind` 内不允许裸数字碰撞；禁止 `tk0001` 与 `tk00001` 共存，禁止 `pl0001` 与 `pl00001` 共存
 - `board` 用模块短词或场景码
 - `board` 不得使用 `tdo` / `doi` / `rvw` / `dne` / `bkd` / `cand` / `arvd` 这类状态保留词；`rvw` 已退休但仍保留，避免旧状态歧义
 - `slug` 只允许 `[a-z0-9-]`
@@ -125,6 +126,7 @@ state：
 - 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/` 和相关记忆，确认不是同 scope 重复立项
 - 去重先看 live root 与 memory；只有 direct anchor、回归考古、用户问历史、或根目录加 memory 仍无法判定时，才打开 archive 正文
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
+- `task.sh new` 按 kind 分别发号：`tk` 只看 `tk*`，`pl` 只看 `pl*`，`rs` 只看 `rs*`，`rf` 只看 `rf*`
 - `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
 - 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现
 
@@ -526,7 +528,7 @@ action：
 
 规则：
 
-- 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面统一分配下一个可用 id
+- 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面按 kind 分配下一个可用 id
 - 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rNNN-author>`，不走全局发号
 - 新建 progress 时走 `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh new` / `task.sh review` / `task.sh progress` 前必须先读相关 `pl` / `rs` / `tk` / `rv` / progress 真相源，确认当前 scope 没有被已有任务覆盖

@@ -92,7 +92,7 @@ Do not invent a second state system. The filename state slot is the truth source
 35. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, `docs/progress/`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
 36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
 37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
-38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
+38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper allocates ids per kind (`tk`, `pl`, `rs`, `rf`) and uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
 39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rNNN-author>` for review exchange docs.
 40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
 41. Do not write project memory just because you are creating a fresh `pl` / `rs` / `tk`. Memory is for stable milestones, key decisions, freeze points, or tasks that explicitly require `memory: required`.
@@ -252,6 +252,7 @@ Current commands:
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, done-buffer cleanup, and memory-gated close checks.
 For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author>`; do not allocate global review ids for new work.
+`task.sh new` uses per-kind counters. `tk0001` and `pl0001` may coexist; `tk0001` and `tk00001` may not. Do not renumber old files to make sequences look tidy.
 Read a review thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
 `task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.

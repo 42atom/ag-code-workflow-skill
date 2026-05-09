@@ -90,6 +90,7 @@ Common commands:
 
 For `task.sh new`, the contract is literal: `<kind> <board> <slug> [prio]`.
 `board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
+Issue ids are allocated per kind. `tk0001` and `pl0001` may coexist; `tk0001` and `tk00001` may not. Existing old numbering is not migrated just to make sequences look tidy.
 Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 `task.sh new` uses an atomic `.agata-new-id.lock` directory while allocating ids. If it reports busy, rerun after the other allocator finishes.
 Execution workpad steps use `task.sh progress <task-id> <sNN-slug> [state]` and land under `docs/progress/`. Their state is step state only; parent task closure remains in `issues/`.

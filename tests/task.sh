@@ -552,8 +552,57 @@ links: []
 EOF
 
 run_task "$project_root" check
-assert_eq "$task_status" "1" "check should fail on colliding bare numeric task ids"
-assert_contains "$task_stderr" "duplicate or colliding task ids detected" "check should explain numeric id collision"
+assert_eq "$task_status" "1" "check should fail on colliding bare numeric issue ids"
+assert_contains "$task_stderr" "duplicate or colliding issue ids detected" "check should explain numeric id collision"
+
+rm -rf "$project_root"
+
+######## different issue kinds may reuse the same numeric id
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk0001.tdo.runtime.same-number-task.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: kind prefixes are separate id namespaces
+scope: allow tk and pl to share the same digits
+risk: low
+accept: cross-kind numeric reuse passes check
+memory: none
+links: []
+---
+EOF
+write_file "$project_root/issues/pl0001.tdo.product.same-number-plan.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: plans have their own id namespace
+scope: allow pl and tk to share the same digits
+risk: low
+accept: cross-kind numeric reuse passes check
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept same digits across different issue kinds"
+assert_eq "$task_stdout" "ok" "cross-kind numeric reuse should still print ok"
+
+write_file "$project_root/issues/pl00001.tdo.product.plan-width-collision.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: same-kind 4-digit and 5-digit ids still collide
+scope: catch pl0001 versus pl00001
+risk: low
+accept: same-kind numeric collision fails check
+links: []
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should fail on same-kind numeric collisions"
+assert_contains "$task_stderr" "duplicate or colliding issue ids detected" "check should explain same-kind numeric collision"
 
 rm -rf "$project_root"
 
@@ -868,7 +917,11 @@ grep -Fqx 'depends_on: []' "$task_stdout" || fail "new tk should include default
 
 run_task "$project_root" new pl product sample-plan
 assert_eq "$task_status" "0" "new pl should succeed in shared root checkout"
-assert_eq "$task_stdout" "$project_root/issues/pl0002.tdo.product.sample-plan.md" "new pl should advance the shared sequence"
+assert_eq "$task_stdout" "$project_root/issues/pl0001.tdo.product.sample-plan.md" "new pl should allocate from the pl namespace"
+
+run_task "$project_root" new tk runtime second-task p2
+assert_eq "$task_status" "0" "new tk should ignore pl ids while allocating"
+assert_eq "$task_stdout" "$project_root/issues/tk0002.tdo.runtime.second-task.p2.md" "new tk should advance only the tk namespace"
 
 run_task "$project_root" new tk rvw reserved-board p1
 assert_eq "$task_status" "1" "new should reject rvw as a retired reserved board name"
@@ -881,9 +934,9 @@ assert_contains "$task_stderr" "rp is legacy" "new should point review creation 
 linked_root="$(make_linked_worktree "$project_root" "task/new-control-plane")"
 run_task "$linked_root" new rs runtime linked-attempt
 assert_eq "$task_status" "0" "new should route to the shared control plane from a linked worktree"
-assert_eq "$task_stdout" "$project_root/issues/rs0003.tdo.runtime.linked-attempt.md" "linked worktree new should still create truth on the control plane"
+assert_eq "$task_stdout" "$project_root/issues/rs0001.tdo.runtime.linked-attempt.md" "linked worktree new should still create truth on the control plane"
 [[ -f "$task_stdout" ]] || fail "linked worktree new should create the control-plane file"
-[[ ! -f "$linked_root/issues/rs0003.tdo.runtime.linked-attempt.md" ]] || fail "linked worktree new should not write the mirror truth path locally"
+[[ ! -f "$linked_root/issues/rs0001.tdo.runtime.linked-attempt.md" ]] || fail "linked worktree new should not write the mirror truth path locally"
 
 remove_linked_worktree "$project_root" "$linked_root"
 rm -rf "$project_root"
@@ -1017,7 +1070,7 @@ assert_not_contains "$task_stderr" "stale doi task: tk10024" "linked worktree ch
 remove_linked_worktree "$project_root" "$linked_root"
 rm -rf "$project_root"
 
-######## linked worktree check should still see global duplicate ids from the control plane
+######## linked worktree check should still see duplicate issue ids from the control plane
 
 project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10025.tdo.runtime.control-plane-check-duplicate-a.p1.md" <<'EOF'
@@ -1045,7 +1098,7 @@ assignee: codex
 why: duplicate id exists only on the control plane branch history
 scope: make sure linked check still sees the collision
 risk: low
-accept: duplicate detection is global
+accept: duplicate detection uses the control-plane issue namespace
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
 links: []
@@ -1054,7 +1107,7 @@ EOF
 
 run_task "$linked_root" check
 assert_eq "$task_status" "1" "linked worktree check should fail on control-plane duplicate ids"
-assert_contains "$task_stderr" "duplicate or colliding task ids detected" "linked worktree check should report control-plane duplicate ids"
+assert_contains "$task_stderr" "duplicate or colliding issue ids detected" "linked worktree check should report control-plane duplicate ids"
 
 remove_linked_worktree "$project_root" "$linked_root"
 rm -rf "$project_root"

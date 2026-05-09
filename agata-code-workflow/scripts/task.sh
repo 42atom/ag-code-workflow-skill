@@ -675,20 +675,21 @@ resolve_task_worktree() {
 
 next_doc_digits() {
   local root="$1"
+  local kind="$2"
 
-  python3 - "$root" <<'PY'
+  python3 - "$root" "$kind" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 root = Path(sys.argv[1])
-pattern = re.compile(r"^(?:tk|pl|rs|rf|rp)(\d{4,5})\.")
+kind = sys.argv[2]
+pattern = re.compile(rf"^{re.escape(kind)}(\d{{4,5}})\.")
 max_num = 0
 width = 4
 
-for base in (root / "issues", root / "docs" / "reviews"):
-    if not base.exists():
-        continue
+base = root / "issues"
+if base.exists():
     for path in sorted(base.rglob("*.md")):
         match = pattern.match(path.name)
         if not match:
@@ -870,7 +871,7 @@ cmd_new() {
   fi
 
   acquire_new_id_lock "$root"
-  digits="$(next_doc_digits "$root")"
+  digits="$(next_doc_digits "$root" "$kind")"
   file="$(issue_doc_path "$root" "$kind" "$digits" "$board" "$slug" "$prio")"
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
@@ -1318,7 +1319,7 @@ assert_prune_not_self_destructing() {
   fi
 }
 
-check_duplicate_task_ids() {
+check_duplicate_issue_ids() {
   local root="$1"
   local duplicates
 
@@ -1329,27 +1330,29 @@ import re
 import sys
 
 root = Path(sys.argv[1])
-pattern = re.compile(r"^(tk\d{4,5})\.")
+pattern = re.compile(r"^(?P<kind>tk|pl|rs|rf)(?P<digits>\d{4,5})\.")
 
 exact_ids = {}
 bare_ids = {}
 
-for path in sorted(root.rglob("tk*.md")):
+for path in sorted(root.rglob("*.md")):
     match = pattern.match(path.name)
     if not match:
         continue
-    task_id = match.group(1)
-    exact_ids.setdefault(task_id, []).append(str(path))
-    bare_ids.setdefault(f"tk{int(task_id[2:])}", set()).add(task_id)
+    kind = match.group("kind")
+    digits = match.group("digits")
+    issue_id = f"{kind}{digits}"
+    exact_ids.setdefault(issue_id, []).append(str(path))
+    bare_ids.setdefault((kind, int(digits)), set()).add(issue_id)
 
 problems = []
 for task_id, paths in sorted(exact_ids.items()):
     if len(paths) > 1:
         problems.append(f"exact:{task_id} -> " + ", ".join(paths))
 
-for bare_id, task_ids in sorted(bare_ids.items()):
-    if len(task_ids) > 1:
-        problems.append(f"bare:{bare_id} -> " + ", ".join(sorted(task_ids)))
+for (kind, bare_num), issue_ids in sorted(bare_ids.items()):
+    if len(issue_ids) > 1:
+        problems.append(f"bare:{kind}{bare_num} -> " + ", ".join(sorted(issue_ids)))
 
 if problems:
     print("\n".join(problems))
@@ -1357,7 +1360,7 @@ if problems:
 PY
   )"; then
     echo "$duplicates" >&2
-    die "duplicate or colliding task ids detected"
+    die "duplicate or colliding issue ids detected"
   fi
 }
 
@@ -1923,7 +1926,7 @@ cmd_check() {
   local semantic_root="${2:-$1}"
 
   assert_no_truth_edits_in_linked_worktree "$current_root" "check"
-  check_duplicate_task_ids "$semantic_root"
+  check_duplicate_issue_ids "$semantic_root"
   check_arvd_residue "$semantic_root"
   check_legacy_rvw_state "$semantic_root"
   check_rp_names "$semantic_root"
