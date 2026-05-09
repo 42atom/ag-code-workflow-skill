@@ -420,7 +420,7 @@ review 命名规则：
 - 平行 task worktree 默认双盲；一个 task worktree 不得直接依赖另一个 task worktree 的未落地代码、生成物、本地服务端口或数据库状态
 - 跨 task 交付、协作或 review 邀请，必须先落成控制面可见的共享证据，再由接收方消费；禁止通过跨目录读取另一个 task worktree 走私中间态
 - 复审可在独立 review worktree 中做验证，但 `tk` / `rv` 结论仍回主 checkout 落盘
-- 代码任务收口顺序固定：专属 worktree 完成实现与验证 -> 代码并回目标主线 -> 主单推进到 `dne` -> `task.sh archive-done --keep 8` -> 清理该任务的 worktree 与本地分支
+- 代码任务收口顺序固定：专属 worktree 完成实现与验证 -> 代码并回目标主线 -> 主单推进到 `dne` -> `task.sh archive-done --keep 16` -> 清理该任务的 worktree 与本地分支
 - `dne` 不表示“代码仍留在 task worktree”；若实现尚未并回目标主线，禁止关单后直接删树
 - 同一 task 续做时复用原 worktree
 - 任务进入 `dne` / `cand` / `arvd` 且已收口后，应移除对应 worktree；`bkd` 可保留 worktree 但冻结，不得混入别的 task
@@ -488,7 +488,7 @@ review 命名规则：
 - `arvd` 是终态，不应残留在 `issues/` 根目录
 - 归档后的任务应位于 `issues/archive/YYYY/`
 - `check` 发现根目录 `tk*.arvd.*.md` 时必须失败
-- `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 8`
+- `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 16`
 - `archive-done` 只做物理归档，不把 `.dne.` 改成 `.arvd.`
 - `issues/archive/YYYY/` 已经说明文件是冷历史；不需要再用文件名重复表达“已归档”
 - `task.sh check` 不自动移动 `dne` 文件，最多由操作者显式清理上下文

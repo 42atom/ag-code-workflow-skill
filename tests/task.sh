@@ -210,6 +210,34 @@ assert_contains "$task_stderr" "keep must be a non-negative integer" "archive-do
 
 rm -rf "$project_root"
 
+######## archive-done default should keep sixteen done docs
+
+project_root="$(make_project)"
+for number in $(seq 1 17); do
+  digits="$(printf '%05d' "$((10000 + number))")"
+  write_file "$project_root/issues/tk${digits}.dne.runtime.default-buffer-${digits}.p1.md" <<EOF
+---
+owner: user
+assignee: codex
+why: default done buffer fixture ${digits}
+scope: prove archive-done default keeps sixteen docs
+risk: low
+accept: only the oldest done doc moves with default keep
+memory: none
+links: []
+---
+EOF
+done
+
+run_task "$project_root" archive-done
+assert_eq "$task_status" "0" "archive-done default should succeed"
+archive_year="$(date +%Y)"
+assert_eq "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10001.dne.runtime.default-buffer-10001.p1.md" "archive-done default should move only the oldest seventeenth done doc"
+[[ -f "$project_root/issues/tk10002.dne.runtime.default-buffer-10002.p1.md" ]] || fail "archive-done default should keep sixteen done docs in root"
+[[ -f "$project_root/issues/tk10017.dne.runtime.default-buffer-10017.p1.md" ]] || fail "archive-done default should keep newest done doc in root"
+
+rm -rf "$project_root"
+
 ######## root-level arvd residue should fail check
 
 project_root="$(make_project)"

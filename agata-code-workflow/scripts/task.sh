@@ -2004,7 +2004,7 @@ main() {
       control_root="$(find_control_plane_root "$current_root")"
       case "$#" in
         1)
-          cmd_archive_done "$control_root" "8"
+          cmd_archive_done "$control_root" "16"
           ;;
         3)
           [[ "$2" == "--keep" ]] || die "usage: task.sh archive-done [--keep N]"
