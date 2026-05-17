@@ -938,34 +938,35 @@ def render_markdown_preview(source_path: Path, project_root: Path) -> str:
       margin: 0;
       background: #f3efe7;
       color: var(--ink);
-      font: 17px/1.72 ui-serif, Georgia, "Songti SC", "STSong", serif;
+      font: 15px/1.58 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     }}
     .markdown-doc {{
-      max-width: 920px;
-      margin: 44px auto;
-      padding: 48px 56px;
+      max-width: 1040px;
+      margin: 28px auto;
+      padding: 32px 40px;
       background: var(--paper);
       border: 1px solid var(--line);
-      border-radius: 24px;
-      box-shadow: 0 18px 55px rgba(62, 45, 24, 0.12);
+      border-radius: 18px;
+      box-shadow: 0 12px 34px rgba(62, 45, 24, 0.10);
     }}
     .path {{
-      margin-bottom: 28px;
+      margin-bottom: 18px;
       color: var(--muted);
-      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
     }}
     h1, h2, h3, h4 {{
       line-height: 1.25;
-      margin: 1.9em 0 0.65em;
-      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      margin: 1.35em 0 0.5em;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       letter-spacing: -0.02em;
     }}
-    h1 {{ margin-top: 0; font-size: 32px; }}
-    h2 {{ font-size: 24px; border-top: 1px solid var(--line); padding-top: 24px; }}
-    h3 {{ font-size: 19px; }}
-    p {{ margin: 0 0 1em; }}
-    ul, ol {{ padding-left: 1.35em; margin: 0 0 1.1em; }}
-    li {{ margin: 0.25em 0; }}
+    h1 {{ margin-top: 0; font-size: 24px; }}
+    h2 {{ font-size: 19px; border-top: 1px solid var(--line); padding-top: 16px; }}
+    h3 {{ font-size: 16px; }}
+    h4 {{ font-size: 15px; }}
+    p {{ margin: 0 0 0.72em; }}
+    ul, ol {{ padding-left: 1.25em; margin: 0 0 0.82em; }}
+    li {{ margin: 0.12em 0; }}
     code {{
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.92em;
@@ -976,11 +977,11 @@ def render_markdown_preview(source_path: Path, project_root: Path) -> str:
     }}
     pre {{
       overflow: auto;
-      padding: 16px;
+      padding: 12px 14px;
       background: var(--code);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      line-height: 1.55;
+      border-radius: 10px;
+      line-height: 1.48;
     }}
     pre code {{
       padding: 0;
@@ -989,20 +990,20 @@ def render_markdown_preview(source_path: Path, project_root: Path) -> str:
       font-size: 13px;
     }}
     .frontmatter {{
-      margin: 0 0 32px;
+      margin: 0 0 22px;
       color: var(--muted);
     }}
     .frontmatter summary {{
       cursor: pointer;
       color: var(--accent);
-      font: 700 13px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      font: 700 12px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }}
     @media (max-width: 760px) {{
       .markdown-doc {{
         margin: 0;
-        padding: 28px 22px;
+        padding: 22px 18px;
         border: 0;
         border-radius: 0;
       }}
