@@ -80,6 +80,7 @@ accept: html and json carry 5-digit ids
 memory: required
 links:
     - docs/reviews/tk10001.rv001-r1-gemini.md
+    - tk10003
 ---
 EOF
 
@@ -182,6 +183,19 @@ assert_contains "$data_file" '"progress_open_count": 1'
 assert_contains "$data_file" '"active_progress"'
 assert_contains "$data_file" '"ready_status": "dag-blocked"'
 assert_contains "$data_file" '"year": "2026"'
+python3 - "$data_file" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+task = next(item for item in data["current"]["tasks"] if item["doc_id"] == "tk10001")
+assert any(
+    link["raw"] == "tk10003" and link["exists"] and link.get("preview_url")
+    for link in task["links"]
+)
+PY
 assert_contains "$html_file" 'tk10001'
 assert_contains "$html_file" 'tk10001.s02-fix'
 assert_contains "$html_file" 'tk10001.rv001-r1'

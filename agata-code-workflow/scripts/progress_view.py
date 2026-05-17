@@ -219,6 +219,8 @@ def normalize_link(project_root: Path, raw_link: str) -> Path:
         return project_root
     if target.startswith("/"):
         return Path(target)
+    if re.match(r"^(tk|pl|rs|rf)\d{4,5}\..*\.md$", target):
+        return project_root / "issues" / target
     if re.match(r"^rp\d{4,5}\..*\.md$", target):
         return project_root / "docs" / "reviews" / target
     if re.match(r"^(tk|pl|rs|rf)\d{4,5}\.rv[0-9]{3}-r[0-9]+-[a-z0-9-]+\.md$", target):
@@ -226,6 +228,21 @@ def normalize_link(project_root: Path, raw_link: str) -> Path:
     if re.match(r"^tk\d{4,5}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)\.md$", target):
         return project_root / "docs" / "progress" / target
     return project_root / target
+
+
+def find_issue_anchor_matches(project_root: Path, issue_id: str) -> list[Path]:
+    issue_root = project_root / "issues"
+    if not issue_root.is_dir():
+        return []
+    matches = [
+        path
+        for path in issue_root.rglob(f"{issue_id}.*.md")
+        if DOC_RE.match(path.name)
+    ]
+    return sorted(
+        matches,
+        key=lambda path: ("archive" in path.relative_to(issue_root).parts, str(path)),
+    )
 
 
 def find_review_anchor_matches(project_root: Path, review_id: str) -> list[Path]:
@@ -237,6 +254,18 @@ def find_review_anchor_matches(project_root: Path, review_id: str) -> list[Path]
 
 def resolve_link_entry(project_root: Path, raw_link: str) -> dict[str, Any]:
     target = strip_quotes(raw_link)
+
+    if re.fullmatch(r"(tk|pl|rs|rf)\d{4,5}", target):
+        matches = find_issue_anchor_matches(project_root, target)
+        first = matches[0].resolve() if matches else (project_root / "issues" / target).resolve()
+        return {
+            "raw": raw_link,
+            "path": str(first),
+            "relative_path": str(first).replace(str(project_root.resolve()) + "/", ""),
+            "label": target,
+            "exists": bool(matches),
+            "file_url": matches[0].resolve().as_uri() if matches else "",
+        }
 
     if re.fullmatch(r"rp\d{4,5}", target):
         matches = find_review_anchor_matches(project_root, target)
