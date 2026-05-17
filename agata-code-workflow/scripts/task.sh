@@ -429,7 +429,7 @@ print_usage() {
   cat <<'EOF'
 usage:
   task.sh new <kind> <board> <slug> [prio]
-  task.sh review <issue-id> <rvNNN> <rNNN-author>
+  task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]
   task.sh progress <task-id> <sNN-slug> [state]
   task.sh ls [state]
   task.sh find <id>
@@ -747,15 +747,17 @@ progress_doc_path() {
 write_new_issue_doc() {
   local file="$1"
   local kind="$2"
+  local review_result="${3:-note}"
 
   mkdir -p "$(dirname "$file")"
 
   case "$kind" in
     rv)
-      cat >"$file" <<'EOF'
+      cat >"$file" <<EOF
 ---
 owner: user
 assignee: codex
+result: ${review_result}
 why: TODO
 scope: TODO
 risk: low
@@ -906,21 +908,23 @@ cmd_progress() {
 
 cmd_review() {
   local root="$1"
-  local issue_id thread round_author file
+  local issue_id thread round_author result file
 
   assert_control_plane_checkout "$root" "review"
   issue_id="$(normalize_issue_id "$2")"
   thread="$3"
   round_author="$4"
+  result="${5:-note}"
 
   find_issue_file_anywhere "$root" "$issue_id" >/dev/null
   [[ "$thread" =~ ^rv[0-9]{3}$ ]] || die "review thread must look like rv001"
   [[ "$round_author" =~ ^r[0-9]{3}-[a-z0-9-]+$ ]] || die "review round must look like r001-author"
+  [[ "$result" =~ ^(block|pass|note)$ ]] || die "review result must be block, pass, or note"
 
   file="$(review_doc_path "$root" "$issue_id" "$thread" "$round_author")"
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
-  write_new_issue_doc "$file" "rv"
+  write_new_issue_doc "$file" "rv" "$result"
   echo "$file"
 }
 
@@ -1400,7 +1404,7 @@ check_rp_names() {
 
 check_rv_names() {
   local root="$1"
-  local file base issue_id
+  local file base issue_id result
 
   [[ -d "$root/docs/reviews" ]] || return 0
 
@@ -1410,6 +1414,10 @@ check_rv_names() {
       || continue
     issue_id="${base%%.*}"
     find_issue_file_anywhere "$root" "$issue_id" >/dev/null
+    result="$(extract_frontmatter_scalar "$file" "result")"
+    if [[ -n "$result" && ! "$result" =~ ^(block|pass|note)$ ]]; then
+      die "invalid review result in $file: $result"
+    fi
   done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort)
 }
 
@@ -1922,8 +1930,8 @@ main() {
     review)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      [[ $# -eq 4 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rNNN-author>"
-      cmd_review "$control_root" "$2" "$3" "$4"
+      [[ $# -ge 4 && $# -le 5 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]"
+      cmd_review "$control_root" "$2" "$3" "$4" "${5:-note}"
       ;;
     progress)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"

@@ -35,7 +35,7 @@ Do not invent a second state system. The filename state slot is the truth source
 2. `issues/` files carry state. Issue-scoped `rv` files carry review exchange evidence.
 3. `pl` is for discussion/spec. `rs` is for research. `tk` is the executable issue.
 4. Progress files under `docs/progress/` carry execution workpad evidence; they never decide issue closure.
-5. Review files are parent-first and thread/round based: `<issue-id>.rvMMM-rNNN-author.md`.
+5. Review files are parent-first and thread/round based: `<issue-id>.rvMMM-rNNN-author.md`. New review records carry `result: block|pass|note` in frontmatter; keep filename shape stable until a migration explicitly changes it.
 6. `commit` and `branch` are implementation trace, not task truth.
 7. `refs/agent-names.md` is an optional human-name registry for agent sessions; it is never task state.
 8. Ordinary docs may live outside `issues/`, but they must not redefine workflow state, task truth, progress truth, or review truth.
@@ -45,7 +45,8 @@ Do not invent a second state system. The filename state slot is the truth source
 12. Raw sub-agent output is advisory until the primary agent promotes it. Assigned `rv` review records are evidence, but never task-state or closure authority.
 13. DAG readiness is not a state. Keep future required work as `tdo` and express blockers with `depends_on`.
 14. `cand` means withdrawn from active required work; it does not mean candidate backlog.
-15. `refs/radar.md` is a low-trust observation log, not backlog, task truth, review evidence, progress, or project memory.
+15. `refs/radar.md` is a low-trust observation log, not backlog, task truth, review evidence, progress, review-nit storage, or project memory.
+16. Files are truth, filenames are indexes, generated cache is projection, bodies are evidence, and the primary agent makes closure decisions.
 
 ## Workflow
 
@@ -78,10 +79,10 @@ Do not invent a second state system. The filename state slot is the truth source
 19. Reuse the same task worktree while the same task is still active. When the task closes into `dne` / `cand` / `arvd` and all related changes are landed, remove that worktree. `bkd` may keep the worktree frozen, but do not mix another task into it.
 20. Preserve id-first naming and keep the filename slots stable except for state.
 21. When an issue moves state, rename the existing `tk` / `pl` / `rs` / `rf` file; do not create a parallel file.
-22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`. Use zero-padded rounds so plain `cat docs/reviews/<issue-id>.rvMMM-r*.md` reads in order.
+22. When review happens, create one `rv` file per message: `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`. Use zero-padded rounds so plain `cat docs/reviews/<issue-id>.rvMMM-r*.md` reads in order. New records must set `result: block|pass|note`.
 23. `rv` records are immutable exchange messages. Once created, treat them as frozen.
 24. Keep the same `rvMMM` for the same review thread; use `r001`, `r002`, `r003` for each exchange message.
-25. Review is evidence, not a `tk` state. Keep review rounds in `rv` records and close the controlling `tk` only after blocking review findings are resolved.
+25. Review is evidence, not a `tk` state. Keep review rounds in `rv` records and close the controlling `tk` only after `block` findings are resolved or explicitly overruled; do not restore `rvw`.
 26. Links must use stable anchors, not stateful full filenames. Use `tk0001`, `rp0001`, `tk0001.rv001-r001-codex`, or `tk0001.s01-repro`; never link `tk0001.tdo.*.md`.
 27. Use `docs/progress/<tk-id>.sNN-<slug>.<state>.md` when a long task needs a file-driven workpad. Valid progress states are `tdo`, `doi`, `dne`, and `bkd`.
 28. Progress files are task-scoped execution ledger entries. They may record env stamp, done, verify, next, and risk; they do not replace the parent `tk`.
@@ -95,7 +96,7 @@ Do not invent a second state system. The filename state slot is the truth source
 36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
 37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, or `refs/project-memory-aaak.md`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
 38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper allocates ids per kind (`tk`, `pl`, `rs`, `rf`) and uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
-39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rNNN-author>` for review exchange docs.
+39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]` for review exchange docs.
 40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
 41. Do not write project memory just because you are creating a fresh `pl` / `rs` / `tk`. Memory is for stable milestones, key decisions, freeze points, or tasks that explicitly require `memory: required`.
 42. `task.sh move <id> doi` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. In same-engine concurrency, thread id is the primary disambiguator.
@@ -112,7 +113,7 @@ Do not invent a second state system. The filename state slot is the truth source
 53. Do not create a review branch or review worktree before both the controlling `tk` and the intended review-round truth exist.
 54. Branch names should express workflow role, not agent identity. Prefer `task/tkNNNN-<slug>`, `review/tkNNNN-<slug>`, `salvage/<name>`, and `release/<version>` unless the project defines a stricter local convention.
 55. Keep task, review, and salvage worktrees outside the repository directory, under a project-level worktree root when one is defined. Do not hide execution worktrees inside the repo being edited.
-56. Close code tasks in this order: finish implementation and verification in the dedicated worktree, land code on the target mainline branch, move the controlling task to `dne`, run `task.sh archive-done --keep 32`, then clean up that task's worktree and local branch.
+56. Close code tasks in this order: finish implementation and worktree verification, land code on the target mainline branch, verify that target mainline, write `code_version` as the product-code commit/ref plus `verify` evidence, move the controlling task to `dne`, run `task.sh archive-done --keep 32`, then clean up that task's worktree and local branch.
 57. `dne` is not valid while the implementation only exists in a task worktree; code changes must already be drained into the target mainline branch.
 58. Test files must not grab a workflow id before the controlling `tk` exists. Regression or source-lock tests that serve an existing task should reuse the owner task id or use non-task-id naming.
 59. New IPC, event, channel, protocol, projection, or cross-boundary contract work must name three roles before implementation: who defines it, who produces it, and who consumes it. Missing producer or consumer ownership is a plan gap, not an implementation detail.
@@ -182,6 +183,7 @@ Rules:
 - If the observation proves irrelevant, change `态:` to `dropped` and add one short reason.
 - Stable architectural lessons go to `refs/project-memory-aaak.md`, not radar.
 - Blocking review findings go to the controlling `tk` / `rv`, not radar.
+- Task-local review nits stay in the parent `rv`; only cross-task, repeatable observations with a clear trigger may be promoted to radar.
 
 Minimal shape:
 
@@ -272,11 +274,12 @@ Coverage tables are read-only snapshots, not a second ledger.
 
 Formal `rv` files need one existing parent issue.
 
-- Single-issue review: write `docs/reviews/<issue-id>.rvMMM-rNNN-author.md`.
+- Single-issue review: write `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` with `result: block|pass|note`.
 - Comprehensive audit: write `aidocs/agent-runs/<scope>.review-<agent>-<date>.md`.
 - Examples of comprehensive audit: recent-N-hours review, whole-repo audit, cross-task review, broad architecture critique, or any review whose target is not exactly one `tk` / `pl` / `rs` / `rf`.
 - Comprehensive audit is raw material. It cannot block, approve, or close a task by itself.
 - Primary triage is the promotion gate. Each finding becomes one of: `reject`, `attach` to an existing parent `rv`, or `split` into a concrete `tk`.
+- `radar_candidate: yes` in an `rv` is only a suggestion. The primary agent decides whether it becomes a `refs/radar.md` entry.
 
 ## Control-Plane Concurrency
 
@@ -296,8 +299,8 @@ Minimal loop:
 
 1. Primary agent writes or updates the controlling `tk` / `pl` on the shared control plane.
 2. Primary agent assigns each sub-agent a bounded scope, owner files/modules, non-scope, verification commands, and expected return format.
-3. Implementation sub-agents work in dedicated worktrees and report changed files, verification, unfinished work, and handoff notes.
-4. Review sub-agents write findings as `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` when assigned a clean review round; otherwise their raw output goes to `aidocs/agent-runs/`. They do not move the controlling issue state.
+3. Implementation sub-agents work in dedicated worktrees and report changed files, verification, unfinished work, and handoff notes. They may write task-scoped progress for the current `tk`, but they must not create new issues or move/close lifecycle state.
+4. Review sub-agents write findings as `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` with `result: block|pass|note` when assigned a clean review round; otherwise their raw output goes to `aidocs/agent-runs/`. They do not move the controlling issue state.
 5. Primary agent consumes sub-agent output, promotes valid conclusions into `tk` / `rv`, rejects or fixes bad output, and decides whether to repair, re-dispatch, split a new `tk`, request user decision, or close.
 6. Primary agent closes only after implementation is on the target mainline, blocking review findings are resolved or explicitly overruled, verification evidence is written back, and `task.sh check` passes.
 
@@ -318,7 +321,7 @@ Resolve bundled helper paths relative to this `SKILL.md` file's directory. Do no
 Current commands:
 
 - `task.sh new <kind> <board> <slug> [prio]`
-- `task.sh review <issue-id> <rvNNN> <rNNN-author>`
+- `task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]`
 - `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh ls [state]`
 - `task.sh find <id>`
@@ -332,7 +335,7 @@ Current commands:
 - `progress_view.py [--project-root <path>] [--no-open]`
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, done-buffer cleanup, and memory-gated close checks.
-For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author>`; do not allocate global review ids for new work.
+For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]`; do not allocate global review ids for new work. If omitted, review `result` defaults to `note`.
 `task.sh new` uses per-kind counters. `tk0001` and `pl0001` may coexist; `tk0001` and `tk00001` may not. Do not renumber old files to make sequences look tidy.
 Read a review thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.

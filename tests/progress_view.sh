@@ -113,6 +113,10 @@ links: []
 EOF
 
 write_file "$project_root/docs/reviews/tk10001.rv001-r1-gemini.md" <<'EOF'
+---
+result: pass
+---
+
 # tk10001 rv001 r1
 EOF
 
@@ -172,6 +176,7 @@ assert_contains "$data_file" '"doc_id": "tk10001"'
 assert_contains "$data_file" '"preview_url"'
 assert_contains "$data_file" '"doc_id": "tk10003"'
 assert_contains "$data_file" '"doc_id": "tk10001.rv001-r1"'
+assert_contains "$data_file" '"result": "pass"'
 assert_contains "$data_file" '"doc_id": "pl10001.rv001-r1"'
 assert_contains "$data_file" '"doc_id": "tk10001.s01-repro"'
 assert_contains "$data_file" '"doc_id": "tk10001.s02-fix"'
