@@ -300,7 +300,7 @@ unblock_action:
 
 它的职责只有一个：
 
-- 解决用户好输入的 agent 名字
+- 记录用户给 agent session 的命名语义
 
 它不负责：
 
@@ -319,7 +319,7 @@ unblock_action:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid0008 | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 
@@ -333,13 +333,17 @@ unblock_action:
 
 - `name` 是人类输入层，不是唯一身份
 - `sid` 是本轮上下文的唯一追责锚
+- 有物理 thread id 时，从 thread id 派生 `sid`，如 `sid019dd9af`；不从 `refs/agent-names.md` 顺序发号
 - `slot` 是可选口头槽位，如 `A` / `B` / `C`
 - `binding` 是物理证据，如 `thread:<id>`
 - 不写 `online` / `offline`；没有心跳，就没有活跃状态
 - `references/agent-names-lib.md` 只是参考名字库；项目可自由增删 `Pool`
-- 用户说“继续 neo 的工作”时，追加新行：`name=neo`、新 `sid`、`note=continue ...`
-- 用户说“取个新名字”时，从项目 `Pool` 取第一个未绑定过的名字
-- 用户指定自定义名时，先查冲突；已存在则问继承还是重置
+- session 启动时不自动写 `refs/agent-names.md`
+- 非交互或后台任务不询问、不占名，只用 `sid`
+- 用户说“继续 neo 的工作”时，追加新行：`name=neo`、当前 `sid`、`note=continue ...`
+- 用户说“取个新名字”时，只在交互场景从项目 `Pool` 取第一个未绑定过的名字
+- `Pool` 耗尽时不自动造名，继续用 `sid`，提示用户后续补名字
+- 用户指定自定义名时，先查冲突；已存在则在交互场景问继承还是重置，非交互场景只用 `sid`
 - `claimed_by`、review author、commit trailer 优先写 `sid`；`name` 只辅助人读
 
 ## 6. 历史记忆层

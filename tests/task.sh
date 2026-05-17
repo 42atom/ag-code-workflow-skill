@@ -1465,7 +1465,7 @@ write_file "$project_root/refs/agent-names.md" <<'EOF'
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid0001 | A | codex | frontend | thread:abc | continue tk10060 |
+| neo | sid019dd9af | A | codex | frontend | thread:019dd9af | continue tk10060 |
 
 ## Pool
 

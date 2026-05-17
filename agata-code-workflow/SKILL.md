@@ -203,20 +203,24 @@ Minimal shape:
 
 Use `refs/agent-names.md` only when the user wants short names for agent sessions.
 
-This file solves naming, not scheduling. It is the single project truth for agent names.
+This file records user naming intent, not automatic session registration. It solves naming, not scheduling.
 
 Rules:
 
 - `name` is for human input.
 - `sid` is the durable audit id.
+- Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
 - `slot` is optional call shorthand such as `A` / `B` / `C`.
 - `binding` is physical evidence, usually `thread:<id>`.
 - No `online` / `offline`; there is no heartbeat.
 - Do not use `name` as `claimed_by`, review author, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
-- If the user says "continue neo", append a new binding row for `neo` with a new `sid`.
-- If the user says "take a new name", pick the first unused project-pool name.
-- If the user gives a custom name that already exists, ask whether to continue that name or reset it.
+- Do not write this file at session startup.
+- Do not ask for a name in non-interactive or background work. Use only `sid`.
+- If the user says "continue neo", append a binding row for `neo` with the current `sid`.
+- If the user says "take a new name", pick the first unused project-pool name in interactive work only.
+- If the pool is exhausted, keep using `sid` and ask the user to add names later.
+- If the user gives a custom name that already exists, ask whether to continue that name or reset it in interactive work; in non-interactive work, keep using `sid`.
 
 Minimal shape:
 
@@ -227,7 +231,7 @@ Minimal shape:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid0008 | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 

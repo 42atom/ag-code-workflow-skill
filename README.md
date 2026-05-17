@@ -218,6 +218,7 @@ When the trigger fires, open a `tk`, change `态:` to `promoted`, and add `升: 
 ## Agent Names
 
 Use `refs/agent-names.md` only when the user wants short names for agent sessions.
+It records user naming intent, not automatic session registration.
 
 Project shape:
 
@@ -228,7 +229,7 @@ Project shape:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid0008 | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 
@@ -242,8 +243,11 @@ Rules:
 
 - `name` is for human input.
 - `sid` is the durable audit id.
+- Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
 - `binding` is physical evidence, usually `thread:<id>`.
 - No `online` / `offline`; there is no heartbeat.
+- Do not write this file at session startup.
+- Do not ask for names in non-interactive or background work. Use only `sid`.
 - Do not use `name` as review author, `claimed_by`, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
 
