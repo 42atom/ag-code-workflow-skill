@@ -1,6 +1,6 @@
 ---
 name: agata-code-workflow
-description: Use when the user wants to create, update, review, or validate Agata-style file-based workflow artifacts such as task files, plan files, research files, progress step files, review threads, operator checklists, or coauthors.csv. Also use it for ordinary project documentation in repos that follow this workflow, so docs stay aligned with the same truth-source boundaries. Covers parent-first review naming, filename-based state transitions, issue/progress/review separation, review round naming, adjacent project docs, and minimal workflow discipline for local Git-based collaboration.
+description: Use when the user wants to create, update, review, or validate Agata-style file-based workflow artifacts such as task files, plan files, research files, progress step files, review threads, radar observations, operator checklists, or coauthors.csv. Also use it for ordinary project documentation in repos that follow this workflow, so docs stay aligned with the same truth-source boundaries. Covers parent-first review naming, filename-based state transitions, issue/progress/review separation, review round naming, adjacent project docs, and minimal workflow discipline for local Git-based collaboration.
 ---
 
 # Agata Code Workflow
@@ -16,6 +16,7 @@ Use this skill when work touches the file-based workflow itself:
 - validate retired states, review rounds, or `coauthors.csv`
 - organize issue truth source and review evidence in a local Git repo
 - write dense AAAK summaries for tasks, research, review, or project memory
+- write or triage `refs/radar.md` observations that are real but not yet tasks
 - write or revise ordinary project docs without creating a parallel workflow system
 - generate a read-only progress board when the user asks to see current project status
 - start implementation in a dedicated `git worktree` for the current task
@@ -44,6 +45,7 @@ Do not invent a second state system. The filename state slot is the truth source
 12. Raw sub-agent output is advisory until the primary agent promotes it. Assigned `rv` review records are evidence, but never task-state or closure authority.
 13. DAG readiness is not a state. Keep future required work as `tdo` and express blockers with `depends_on`.
 14. `cand` means withdrawn from active required work; it does not mean candidate backlog.
+15. `refs/radar.md` is a low-trust observation log, not backlog, task truth, review evidence, progress, or project memory.
 
 ## Workflow
 
@@ -89,9 +91,9 @@ Do not invent a second state system. The filename state slot is the truth source
 32. Keep any helper automation thin. Scripts may validate and rename files, but must not become a second control plane.
 33. Use `task.sh move` for state-slot changes by default. If the helper cannot express a clearly legal state-slot rename, a manual rename is allowed only as a helper-gap fallback; update the same document, run `task.sh check` immediately, and report the helper gap.
 34. `pl` and any `tdo` document are shared pending truth. Do not leave them only in a disposable task worktree or snapshot branch.
-35. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, `docs/progress/`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
+35. Before deleting a worktree or dropping a local snapshot branch, run `task.sh orphan-scan <base-ref>`. If it reports truth drift under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, or `refs/project-memory-aaak.md`, land or hand off that truth first.
 36. If memory, review, progress, or git history mentions a `tk` / `pl` / `rs` / `rf` / `rv` file that the current truth source cannot find, first run `task.sh orphan-scan <base-ref> <id>` and then trace git history before concluding the file is gone.
-37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
+37. A linked task worktree must not directly edit files under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, or `coauthors.csv`. Use helper commands or draft elsewhere, then land authoritative truth on the control plane.
 38. Create new workflow ids through `task.sh new` on the shared control plane instead of scanning `max(id)+1` by hand in parallel shells. The helper allocates ids per kind (`tk`, `pl`, `rs`, `rf`) and uses an atomic mkdir lock; if it reports busy, rerun after the other allocator finishes.
 39. `task.sh new` takes `<kind> <board> <slug> [prio]`. `board` is a module or scenario code, not a workflow state. New `pl` / `rs` / `rf` / `tk` docs start at `tdo`; use `task.sh review <issue-id> <rvNNN> <rNNN-author>` for review exchange docs.
 40. `docs/plan/` is legacy-only. Do not create new files there, do not treat it as active truth, and do not infer workflow rules from old files there. Migrate still-relevant plans to `issues/pl...` or archive them under `docs/archive/legacy-plan/`.
@@ -100,7 +102,7 @@ Do not invent a second state system. The filename state slot is the truth source
 43. Control-plane mutation on the same task line must be serial. Do not pre-issue multiple `move` commands for the same task; after each successful move, re-read the task truth and gates before deciding the next transition.
 44. Worktree teardown is a control-plane reconciliation step. Only prune after the task is already closed into `dne` / `cand` / `arvd`, workflow truth is clean, and the linked worktree no longer carries execution-only diff versus the chosen base ref.
 45. `doi` and `bkd` are not prune targets. `doi` must be released first; `bkd` keeps a frozen worktree unless the control plane explicitly changes direction.
-46. In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` are only branch mirrors. They are not the authoritative truth view.
+46. In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, and `coauthors.csv` are only branch mirrors. They are not the authoritative truth view.
 47. Workflow helpers should read and write truth through the shared control plane by default. `check` only keeps the current-worktree view for truth-pollution checks; every global workflow semantic check still reads from the control plane. `orphan-scan` still inspects the current worktree while comparing against shared refs.
 48. `prune` must not remove the worktree that contains the current shell cwd. If you are standing in the target worktree, `cd` out first.
 49. Dependency and runtime verification are worktree-local. The current worktree must have local dependencies that match its lockfile; never borrow another checkout's `node_modules`.
@@ -117,7 +119,7 @@ Do not invent a second state system. The filename state slot is the truth source
 60. Cross-process communication, persistence, state-machine, lifecycle, replay, debug, and contract tasks need verification in the real runtime boundary they change. Single-process unit tests cannot be the only evidence for those risks.
 61. UI feedback may expose progress, waiting, success, or failure states, but it must not become lifecycle truth. Completion still follows the controlling task, ledger, or project-defined source of truth.
 62. Never conclude verification from a mixed runtime (old process + new code). Exit old processes first, then run verification on the new build/runtime only.
-63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
+63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
 65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 32` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state. Directory location expresses hot/cold storage; the filename state slot still expresses lifecycle.
 
@@ -129,6 +131,7 @@ Default read surface:
 - the current controlling `tk` / `pl` / `rs` / `rf`
 - same-parent `rv` records for the current issue
 - same-parent progress records for the current task
+- matching `refs/radar.md` entries when creating, deduplicating, or triaging tasks
 - relevant anchors in `refs/project-memory-aaak.md`
 
 Do not bulk-read:
@@ -151,6 +154,49 @@ Default issue frontmatter stays small:
 - `links` is only for evidence, references, review anchors, progress anchors, memory anchors, or related docs.
 - Do not put `reviewer` in default `tk` / `pl` / `rs` / `rf` frontmatter. Reviewers are runtime participants; review truth lives in `rv` records.
 - `claimed_*`, `code_version`, and `verify` are state or closure evidence fields. Do not add them to fresh `tdo` templates.
+
+## Radar
+
+Use `refs/radar.md` for observations that are real but not worth an issue yet.
+
+It is a task incubator, not a task ledger:
+
+- not `issues/`
+- not backlog
+- not review evidence
+- not progress
+- not project memory
+
+Entry states:
+
+- `watching`
+- `promoted`
+- `dropped`
+
+Rules:
+
+- Keep one `refs/radar.md` first. Use `域:` for scope; do not create `radar-frontend.md` until the file itself becomes costly.
+- Every entry must have `触:`. No trigger means no radar entry.
+- If the trigger fires, create a concrete `tk`, change `态:` to `promoted`, and add `升: tkNNNN`.
+- If the observation proves irrelevant, change `态:` to `dropped` and add one short reason.
+- Stable architectural lessons go to `refs/project-memory-aaak.md`, not radar.
+- Blocking review findings go to the controlling `tk` / `rv`, not radar.
+
+Minimal shape:
+
+```md
+## ob20260517-001 local-storage-read-helper-dup
+
+时: 2026-05-17
+源: tk1026
+域: frontend
+位: ComposerBar / MessageActionBar
+观: localStorage read helpers are duplicated.
+判: not worth a task until reuse grows.
+触: third copy appears or defaults diverge again.
+动: promote to shared renderer helper task.
+态: watching
+```
 
 ## Completion Bar
 
@@ -200,7 +246,7 @@ Formal `rv` files need one existing parent issue.
 ## Control-Plane Concurrency
 
 - A passing `task.sh check` is a semantic verdict, not an ownership verdict. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
-- On the shared control plane, unrelated edits under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, or `coauthors.csv`, plus untracked `tk` / `pl` / `rs` / `rf` / `rv` files, are foreign active lines by default, not "noise".
+- On the shared control plane, unrelated edits under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, or `coauthors.csv`, plus untracked `tk` / `pl` / `rs` / `rf` / `rv` files, are foreign active lines by default, not "noise".
 - Before touching a foreign active line, inspect the task id, state, `claimed_at`, `claimed_by`, `claimed_thread_id`, links, nearby review or memory anchors, and `coauthors.csv` when present. Use those signals to decide whether someone else is actively landing truth.
 - On the same task line, control-plane writes are serial by default. Do not pipeline `move` calls such as `tdo -> doi -> dne`; each step must land, then re-read truth and gates before the next step.
 - Unless you are explicitly taking over, do not delete, rename, stage, or fold a foreign active line into your own commit. Commit only your own truth edits and report the other active line separately.
@@ -295,6 +341,13 @@ Read `refs/project-memory-aaak.md` when:
 - reviewing historical decisions or freeze points
 - deciding whether a task must be written into long-term memory
 
+Read `refs/radar.md` when:
+
+- deciding whether a small smell deserves a new `tk`
+- checking whether a non-blocking review thorn was already observed
+- doing periodic observation cleanup
+- seeing a trigger that may promote an observation to a task
+
 Typical cases:
 
 - creating a new workflow file
@@ -304,6 +357,7 @@ Typical cases:
 - checking for retired `rvw` state residue
 - preparing a plan-to-task coverage table before batching implementation
 - checking whether a new task duplicates existing scope
+- recording a non-task observation with a concrete trigger
 - checking cross-boundary define / produce / consume ownership
 - diagnosing linked-worktree dependency drift before running build/test
 - checking `coauthors.csv` shape
@@ -319,7 +373,7 @@ Typical cases:
 - Workflow truth edits belong on the shared root checkout control plane. Prefer helper commands from the current worktree over manual `cd` switching.
 - After any live repro, compiled-app verification, or runtime trace that changes the current diagnosis, first write back a minimal truth resync note to the controlling workflow artifact before continuing. That note must say: scene, observed truth, root-cause or boundary judgment, and the next cut.
 - Do not start the next fix while the controlling `tk` / `rv` still reflects an older diagnosis than the latest live evidence.
-- If a linked worktree needs to write task notes, progress drafts, or review drafts, keep them outside the truth-source paths until they are ready to land on the control plane.
+- If a linked worktree needs to write task notes, progress drafts, review drafts, or radar drafts, keep them outside the truth-source paths until they are ready to land on the control plane.
 - For ordinary docs, prefer updating the canonical doc instead of creating a parallel note with overlapping scope.
 - If a new review artifact is needed, make it parent-first and minimal.
 - If a request can be answered by renaming an existing file, do that instead of adding a layer.

@@ -11,7 +11,7 @@ VALID_MEMORY_MODES="none required done"
 STALE_COAUTHOR_SECONDS=86400
 STALE_DOI_SECONDS=259200
 ID_DIGITS_RE='[0-9]{4,5}'
-TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/project-memory-aaak.md" "coauthors.csv")
+TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/radar.md" "refs/project-memory-aaak.md" "coauthors.csv")
 VALID_KINDS="tk pl rs rf"
 NEW_ID_LOCK_DIR=""
 
@@ -1287,6 +1287,7 @@ linked_worktree_has_execution_diff() {
     ":(exclude)issues"
     ":(exclude)docs/reviews"
     ":(exclude)docs/progress"
+    ":(exclude)refs/radar.md"
     ":(exclude)refs/project-memory-aaak.md"
     ":(exclude)coauthors.csv"
   )
@@ -1302,6 +1303,7 @@ print_linked_worktree_execution_diff() {
     ":(exclude)issues"
     ":(exclude)docs/reviews"
     ":(exclude)docs/progress"
+    ":(exclude)refs/radar.md"
     ":(exclude)refs/project-memory-aaak.md"
     ":(exclude)coauthors.csv"
   )

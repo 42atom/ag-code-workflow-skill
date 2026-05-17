@@ -31,11 +31,12 @@
 - `docs/plan/` 只作 legacy 只读目录；不新增、不作为活跃真相、不参与 `task.sh check` 的活跃语义
 - 仍有价值的旧 `docs/plan/*` 迁到 `issues/pl...`；无继续价值的归入 `docs/archive/legacy-plan/`
 - `docs/progress/` 是 task-scoped 执行 workpad，不是第二套 issue 系统
+- `refs/radar.md` 是观察点日志，只记录“真实但尚未立项”的工程雷达点；不是 backlog、review、progress 或 memory
 - `aidocs/` 只作 AI 协作暂存区，不是真相源，不参与 workflow id、状态、review、memory 判断
 - `active-mainline.md` 只做导航，不承载状态
 - `issues/` 根目录是 live working set 加最近 `dne` 缓冲；旧 `dne` 物理归档到 `issues/archive/YYYY/`，状态仍保持 `dne`
 - 目录表达冷热层，文件名状态槽表达生命周期；不要因为文件进了 archive 目录就再改状态槽
-- 默认读取面只包括 `issues/` 根目录、当前 controlling issue、同父 `rv` / progress、相关 memory 锚点；不得无触发全量读取 archive 正文
+- 默认读取面只包括 `issues/` 根目录、当前 controlling issue、同父 `rv` / progress、相关 radar 条目、相关 memory 锚点；不得无触发全量读取 archive 正文
 - 工具可以扫描 archive 路径做 id、唯一性、依赖和链接校验；路径扫描不是正文阅读
 - 状态变更只改 `tk` 文件名，不靠正文或索引页
 - 若目标项目要偏离这条真相路径，必须有项目级 `AGENTS.md` / `CLAUDE.md` 或当前控制面真相的明确证据；零散历史文件不足以推翻共享规则
@@ -97,6 +98,7 @@ state：
 - `rp` = 旧式全局 review 记录；新增 review 默认不用它
 - `commit / branch` = 实现轨迹，不承载任务状态真相
 - `docs/progress/<tk-id>.sNN-<slug>.<state>.md` = 任务执行 workpad；不承载父任务状态真相
+- `refs/radar.md` = 观察点孵化器；不承载任务状态真相
 
 规则：
 
@@ -110,7 +112,7 @@ state：
 - 有方向但不适合马上执行，落 `pl` 并保持 `tdo`
 - 立刻可执行且验收清楚，落 `tk.tdo`，认领后进 `tk.doi`
 - 未来必做但依赖未满足，仍落 `tk.tdo`，用 `depends_on` 写前置；不得用 `cand` 表示 DAG 等待
-- 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/`、`docs/` 或产品资源目录
+- 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`docs/` 或产品资源目录
 - 子代理原始输出、失败记录、半成品回传，先放 `aidocs/agent-runs/`；只有主控 agent 裁决后，才提升到 `tk` / `rv` / memory / mainline
 - 综合审计、最近 N 小时审计、全仓审计、跨任务 review、没有唯一父 issue 的审阅，先放 `aidocs/agent-runs/`；它们是低信任审计材料，不是正式 review
 - 综合审计经主控 triage 后，每条 finding 只能三种去向：`reject` 留在原始材料，`attach` 到已有父 issue 的 `rv`，或 `split` 成一个具体 `tk`
@@ -123,7 +125,7 @@ state：
 - `dispatch/action` 只写 `closed` / `active` / `dispatchable` / `blocked` / `gap` / `evidence-only`；已 `dne` / `arvd` 的行不写“否”
 - 审计材料归档、raw review 存放、links 整理属于过程证据，不是计划条款；除非目标就是修改 workflow，否则不要为它们单独拆 `tk`
 - 单独拆 `tk` 必须有独立范围、owner、验证和关闭价值；一行断言、小 hardening、review nit 应挂父 `tk` 的 `Completion Bar` 或并入下一张自然 hardening 单
-- 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/` 和相关记忆，确认不是同 scope 重复立项
+- 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/`、相关 radar 和相关记忆，确认不是同 scope 重复立项
 - 去重先看 live root 与 memory；只有 direct anchor、回归考古、用户问历史、或根目录加 memory 仍无法判定时，才打开 archive 正文
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
 - `task.sh new` 按 kind 分别发号：`tk` 只看 `tk*`，`pl` 只看 `pl*`，`rs` 只看 `rs*`，`rf` 只看 `rf*`
@@ -346,6 +348,60 @@ handle,owner,engine,role,status,updated_at,note
 - 对带 `memory: required | done` 的任务，记忆文件必须显式写 `锚: tkNNNN` / `锚：tkNNNN` 或 `锚: tkNNNNN` / `锚：tkNNNNN`
 - 只认稳定 id 锚点，不认正文里偶然出现一次的 task id
 
+## 6.1 Radar 观察点
+
+文件：
+
+- `refs/radar.md`
+
+职责：
+
+- 记录观察到、但尚未值得立项的工程点
+- 给后续 triage 提供小抄
+- 在触发条件满足时孵化为 `tk`
+
+禁止：
+
+- 不当 backlog
+- 不替代 `issues/`
+- 不写阻断 review 结论
+- 不替代 progress
+- 不承载长期架构记忆
+
+状态：
+
+- `watching` = 持续观察
+- `promoted` = 已升格为具体 `tk`
+- `dropped` = 判断为噪声或不再相关
+
+规则：
+
+- 单文件优先：默认只用 `refs/radar.md`
+- 不按域提前拆 `radar-frontend.md` / `radar-host.md`
+- scope 写进 `域:` 字段
+- 只有当 `watching` 超过 80 条、文件超过 2000 行、单域超过 50 条，或清理 radar 本身变贵时，才考虑物理拆分
+- 每条必须有 `触:`；没有触发条件，不写 radar
+- 触发后开 `tk`，把 `态:` 改为 `promoted`，补 `升: tkNNNN`
+- 被证伪或不再值得跟踪，改 `态: dropped`，补一行原因
+- 稳定架构判断进 `refs/project-memory-aaak.md`，不进 radar
+- 阻断项回 controlling `tk` / `rv`，不进 radar
+
+最小格式：
+
+```md
+## ob20260517-001 local-storage-read-helper-dup
+
+时: 2026-05-17
+源: tk1026
+域: frontend
+位: ComposerBar / MessageActionBar
+观: localStorage read helpers are duplicated.
+判: not worth a task until reuse grows.
+触: third copy appears or defaults diverge again.
+动: promote to shared renderer helper task.
+态: watching
+```
+
 ## 7. 状态与评审规则
 
 任务主流状态：
@@ -395,7 +451,7 @@ review 命名规则：
 
 - 一个活跃 task 默认对应一个专属 worktree
 - 主 checkout 是共享控制面；helper 可从 linked worktree 调用并把真相写回主 checkout
-- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的权威改动只落在共享控制面
+- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`coauthors.csv` 的权威改动只落在共享控制面
 - linked worktree 里的这些 truth path 只是该分支镜像，不是权威真相视图
 - linked task worktree 若需要写验证记录、review 草稿或实现笔记，先写在非真相路径；不得直接改上述真相路径里的正式文件
 - `tdo -> doi`、`doi -> bkd|cand|dne`、`rv` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
@@ -438,11 +494,11 @@ review 命名规则：
 共享真相可达性规则：
 
 - `pl` 与任何 `tdo` 态文档属于共享待排期真相，不允许只存在于临时 task worktree / snapshot branch
-- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md`、`coauthors.csv` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
+- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`coauthors.csv` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
 - 判断外来活动线时，先看 task id、state、`claimed_at`、`claimed_by`、`claimed_thread_id`、links、相邻 review / memory 锚点，以及 `coauthors.csv`；没有证据前，不得擅自当成废稿或顺手并入当前提交
 - 未经明确接管，不得删除、改名、暂存或提交外来活动线；当前提交只收自己的真相改动，别线单独报告
 - 若某个 task worktree 中出现了只在本地可见的 `doi` / `rv` / memory 改动，视为控制面漂移；必须先收回主 checkout，再继续执行
-- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
+- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
 - 若项目记忆、review、progress 或 git 历史提到某个 `tk` / `pl` / `rs` / `rf` / `rv`，但当前真相源找不到，先跑 `task.sh orphan-scan <base-ref> <id>`，再用 `git log --all` / `git grep` 追溯；禁止直接假定它不存在
 - 任何 `tkNNNN-*` 测试文件命名前，必须确认 `issues/` 中已有同号 controlling `tk`
 - 若测试只是服务已有主单的 source-lock、回归或结构断言，不得新占一个 task id；复用 owner task 号或使用非 task-id 命名
@@ -614,6 +670,7 @@ docs/progress/
   tk0061.s02-fix.doi.md
 
 refs/
+  radar.md
   project-memory-aaak.md
 
 docs/

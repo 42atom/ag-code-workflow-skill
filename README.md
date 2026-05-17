@@ -10,6 +10,7 @@ Use it when you want a lightweight file-based workflow instead of a separate iss
 - `rv` carries issue-scoped review exchange evidence
 - `tk.tdo` is the backlog; do not add a separate `bl` kind
 - review files are parent-first and round-based
+- `refs/radar.md` carries non-task observations waiting for a trigger
 - `aidocs/` is an AI collaboration staging area, not workflow truth
 - `coauthors.csv` is optional dispatch context
 
@@ -24,6 +25,7 @@ Use it when you want a lightweight file-based workflow instead of a separate iss
 - file-driven workpad steps under `docs/progress/`
 - completion bar / feedback sweep close-out discipline
 - optional AAAK memory
+- a lean radar log for observations that are not worth a task yet
 - keeping review evidence separate from task truth
 - plan-to-task coverage checks before batching work
 - semantic duplicate checks before creating new workflow ids
@@ -52,6 +54,7 @@ Use it whenever work touches:
 
 - `issues/`
 - `docs/reviews/`
+- `refs/radar.md`
 - `refs/project-memory-aaak.md`
 - `coauthors.csv`
 - filename-based task state changes
@@ -102,16 +105,17 @@ During migration, `task.sh check` warns on old stateful links by default. Use `A
 Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
 `issues/` root is the live working set plus the latest done buffer. After close-out, run `task.sh archive-done --keep 32`; it moves older `.dne.` issue docs into `issues/archive/YYYY/` without changing their state. Directory location says cold history; filename state still says lifecycle. `task.sh check` never does this automatically.
 Selective reading: default to `issues/` root plus direct anchors. Helpers may scan archive paths for ids and validation, but agents should not bulk-read archived bodies unless a direct anchor, regression, duplicate-scope check, or user history request requires it.
+Use `refs/radar.md` for observations that are real but not yet tasks. Each entry needs a trigger condition; without a trigger, do not write it. Keep one file first and use a `域:` field for scope. Split only when the file itself becomes expensive to read.
 
 No shadow database. No second state system.
 Use `aidocs/` for raw materials, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated workflow views. It is not a truth source and should not carry task state, review conclusions, or project memory.
 Suggested staging layout: `aidocs/inbox/`, `aidocs/references/`, `aidocs/design/`, `aidocs/generated/`, `aidocs/agent-runs/`.
-Before closure, promote anything durable to its real owner: execution truth to `issues/`, execution workpad to `docs/progress/`, review exchange to `docs/reviews/`, long-lived memory to `refs/project-memory-aaak.md`, project documentation to `docs/`, and product assets to the product asset tree.
+Before closure, promote anything durable to its real owner: execution truth to `issues/`, execution workpad to `docs/progress/`, review exchange to `docs/reviews/`, observations to `refs/radar.md`, long-lived memory to `refs/project-memory-aaak.md`, project documentation to `docs/`, and product assets to the product asset tree.
 When the user explicitly wants sub-agents, the primary agent owns dispatch, recovery, and closure. Raw sub-agent output is advisory until promoted into `tk`, `rv`, memory, docs, or mainline code. Failed or partial sub-agent runs go to `aidocs/agent-runs/` for recovery, not to workflow truth.
-In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` are branch mirrors, not the authoritative truth view.
+In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, and `coauthors.csv` are branch mirrors, not the authoritative truth view.
 Workflow helpers such as `task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `archive`, and `prune` automatically resolve truth through the shared control plane, even when you call them from a linked task worktree.
 `task.sh check` is split on purpose: truth-pollution checks stay local to the current worktree, while all workflow semantics and staleness checks read from the shared control plane. `task.sh orphan-scan` keeps the current-worktree lens while also comparing shared refs.
-If a task worktree needs notes or drafts, keep them outside `issues/`, `docs/reviews/`, `docs/progress/`, `refs/project-memory-aaak.md`, and `coauthors.csv` until the authoritative update is ready to land on the shared checkout.
+If a task worktree needs notes or drafts, keep them outside `issues/`, `docs/reviews/`, `docs/progress/`, `refs/radar.md`, `refs/project-memory-aaak.md`, and `coauthors.csv` until the authoritative update is ready to land on the shared checkout.
 A successful `task.sh check` only says the workflow semantics are valid. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
 On the shared control plane, unrelated truth-path edits and untracked workflow docs are foreign active lines by default, not "noise". Inspect their task id, state, `claimed_at`, `claimed_by`, `claimed_thread_id`, links, and nearby review or memory evidence before deciding whether another agent is landing truth.
 Unless you are explicitly taking over, do not delete, rename, stage, or absorb those foreign active lines into your own commit.
@@ -181,6 +185,34 @@ Recommended memory file:
 
 It is a memory layer, not the truth source.
 
+## Radar
+
+Use `refs/radar.md` for "noticed, not yet a task" engineering observations.
+
+Allowed states:
+
+- `watching`
+- `promoted`
+- `dropped`
+
+Minimal entry:
+
+```md
+## ob20260517-001 local-storage-read-helper-dup
+
+时: 2026-05-17
+源: tk1026
+域: frontend
+位: ComposerBar / MessageActionBar
+观: localStorage read helpers are duplicated.
+判: not worth a task until reuse grows.
+触: third copy appears or defaults diverge again.
+动: promote to shared renderer helper task.
+态: watching
+```
+
+When the trigger fires, open a `tk`, change `态:` to `promoted`, and add `升: tkNNNN`. If it proves irrelevant, mark `dropped` with a short reason.
+
 If a task declares:
 
 ```yaml
@@ -203,6 +235,7 @@ your-project/
   issues/
   docs/reviews/
   docs/progress/
+  refs/radar.md
   refs/project-memory-aaak.md
   coauthors.csv        # optional
 ```

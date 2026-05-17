@@ -9,6 +9,7 @@ Workflow truth stays in the workflow system:
 - `issues/` for `pl` / `rs` / `tk`
 - `docs/reviews/` for issue-scoped `rv`
 - `docs/progress/` for task-scoped execution workpad steps
+- `refs/radar.md` for non-task observations waiting for a trigger
 - `refs/project-memory-aaak.md` for long-lived project memory
 
 Ordinary docs are things like:
@@ -66,6 +67,7 @@ Rules:
 - promote execution truth to `issues/`
 - promote durable execution workpad steps to `docs/progress/`
 - promote review exchange to `docs/reviews/`
+- promote non-task observations with triggers to `refs/radar.md`
 - promote long-lived memory to `refs/project-memory-aaak.md`
 - put runtime product assets in the repo's product asset tree, not in `aidocs/`
 

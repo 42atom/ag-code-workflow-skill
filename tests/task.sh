@@ -1446,6 +1446,31 @@ assert_contains "$task_stdout" "worktree ?? docs/progress/tk10059.s01-repro.tdo.
 
 rm -rf "$project_root"
 
+######## orphan-scan should treat refs/radar.md as workflow control-plane truth
+
+project_root="$(make_git_project)"
+write_file "$project_root/refs/radar.md" <<'EOF'
+# Radar
+
+## ob20260517-001 duplicate-helper
+
+时: 2026-05-17
+源: tk10059
+域: runtime
+位: src/runtime/helper.ts
+观: duplicate helper is visible but not worth a task yet.
+判: watch until another copy appears.
+触: third copy appears.
+动: promote to shared helper task.
+态: watching
+EOF
+
+run_task "$project_root" orphan-scan main
+assert_eq "$task_status" "1" "orphan-scan should fail on untracked radar truth"
+assert_contains "$task_stdout" "worktree ?? refs/radar.md" "orphan-scan should report untracked radar path"
+
+rm -rf "$project_root"
+
 ######## orphan-scan should fail when another branch holds truth not on base
 
 project_root="$(make_git_project)"
