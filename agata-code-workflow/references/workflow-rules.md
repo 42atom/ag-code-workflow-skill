@@ -342,6 +342,7 @@ unblock_action:
 - 不写 `online` / `offline`；没有心跳，就没有活跃状态
 - `references/agent-names-lib.md` 只是参考名字库；项目可自由增删 `Pool`
 - session 启动时不自动写 `refs/agent-names.md`
+- 交互式新 session 应主动问用户要一个新名字或继承旧名字；只问 `name`，不提 `sid`
 - 非交互或后台任务不询问、不占名，只用 `sid`
 - 用户说“继续 neo 的工作”时，追加新行：`name=neo`、当前 `sid`、`note=continue ...`
 - 用户说“取个新名字”时，只在交互场景从项目 `Pool` 取第一个未绑定过的名字

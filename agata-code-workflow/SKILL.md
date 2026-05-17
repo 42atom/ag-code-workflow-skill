@@ -219,6 +219,7 @@ Rules:
 - Do not use `name` as `claimed_by`, review author, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
 - Do not write this file at session startup.
+- In an interactive new session, proactively ask the user whether to inherit an existing name or take a new name. Ask only about `name`, not `sid`.
 - Do not ask for a name in non-interactive or background work. Use only `sid`.
 - If the user says "continue neo", append a binding row for `neo` with the current `sid`.
 - If the user says "take a new name", pick the first unused project-pool name in interactive work only.

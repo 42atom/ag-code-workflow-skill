@@ -250,6 +250,7 @@ Rules:
 - If the same `sid` has multiple binding rows, the latest row in `refs/agent-names.md` is the current human-name mapping.
 - No `online` / `offline`; there is no heartbeat.
 - Do not write this file at session startup.
+- In an interactive new session, proactively ask the user whether to inherit an existing name or take a new name. Ask only about `name`, not `sid`.
 - Do not ask for names in non-interactive or background work. Use only `sid`.
 - Do not use `name` as review author, `claimed_by`, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
