@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import re
 import shutil
@@ -66,7 +65,6 @@ PRIORITY_RANK = {"p0": 0, "p1": 1, "p2": 2, "": 9}
 ACTIVE_STATES = {"tdo", "doi", "bkd"}
 DONE_STATES = {"dne"}
 HISTORY_STATES = {"dne", "cand", "arvd"}
-STALE_COAUTHOR_SECONDS = 24 * 60 * 60
 
 
 ######## filesystem and parsing helpers
@@ -538,45 +536,6 @@ def parse_memory_anchors(memory_file: Path) -> list[str]:
     return anchors
 
 
-def parse_coauthors(project_root: Path) -> list[dict[str, Any]]:
-    coauthors_file = project_root / "coauthors.csv"
-    if not coauthors_file.is_file():
-        return []
-
-    rows: list[dict[str, Any]] = []
-    with coauthors_file.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        now = datetime.now(timezone.utc)
-        for row in reader:
-            status = (row.get("status") or "").strip()
-            updated_at = (row.get("updated_at") or "").strip()
-            stale = False
-            invalid_time = False
-
-            if status == "online":
-                try:
-                    updated = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-                    stale = (now - updated.astimezone(timezone.utc)).total_seconds() > STALE_COAUTHOR_SECONDS
-                except ValueError:
-                    invalid_time = bool(updated_at)
-                    stale = True
-
-            rows.append(
-                {
-                    "handle": (row.get("handle") or "").strip(),
-                    "owner": (row.get("owner") or "").strip(),
-                    "engine": (row.get("engine") or "").strip(),
-                    "role": (row.get("role") or "").strip(),
-                    "status": status,
-                    "updated_at": updated_at,
-                    "note": (row.get("note") or "").strip(),
-                    "stale": stale,
-                    "invalid_time": invalid_time,
-                }
-            )
-    return rows
-
-
 ######## data model shaping
 
 
@@ -617,7 +576,6 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
 
     memory_file = project_root / "refs" / "project-memory-aaak.md"
     memory_anchors = set(parse_memory_anchors(memory_file))
-    coauthors = parse_coauthors(project_root)
 
     for doc in docs:
         linked_docs = [item for item in doc["links"] if item["exists"]]
@@ -738,7 +696,6 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
         for doc in current_tasks
         if doc["memory"] in {"required", "done"}
     ]
-    stale_coauthors = [row for row in coauthors if row["status"] == "online" and row["stale"]]
 
     return {
         "project": {
@@ -763,7 +720,6 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
                 "completion_ratio": completion_ratio,
                 "review_doc_total": len(review_docs),
                 "non_task_total": len(current_non_tasks),
-                "stale_coauthor_total": len(stale_coauthors),
             },
             "state_counts": [
                 {
@@ -782,8 +738,6 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
             "non_tasks": current_non_tasks,
             "progress_docs": progress_docs,
             "memory_watch": memory_watch,
-            "stale_coauthors": stale_coauthors,
-            "coauthors": coauthors,
         },
         "history": {
             "closed_tasks": history_tasks,

@@ -8,10 +8,9 @@ VALID_STATES="tdo doi dne bkd cand arvd"
 VALID_PROGRESS_STATES="tdo doi dne bkd"
 RESERVED_STATE_WORDS="tdo doi rvw dne bkd cand arvd"
 VALID_MEMORY_MODES="none required done"
-STALE_COAUTHOR_SECONDS=86400
 STALE_DOI_SECONDS=259200
 ID_DIGITS_RE='[0-9]{4,5}'
-TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/radar.md" "refs/project-memory-aaak.md" "coauthors.csv")
+TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/agent-names.md" "refs/radar.md" "refs/project-memory-aaak.md")
 VALID_KINDS="tk pl rs rf"
 NEW_ID_LOCK_DIR=""
 
@@ -1287,9 +1286,9 @@ linked_worktree_has_execution_diff() {
     ":(exclude)issues"
     ":(exclude)docs/reviews"
     ":(exclude)docs/progress"
+    ":(exclude)refs/agent-names.md"
     ":(exclude)refs/radar.md"
     ":(exclude)refs/project-memory-aaak.md"
-    ":(exclude)coauthors.csv"
   )
 
   ! git -C "$worktree_path" diff --quiet "$base_ref" -- "${exec_pathspecs[@]}"
@@ -1303,9 +1302,9 @@ print_linked_worktree_execution_diff() {
     ":(exclude)issues"
     ":(exclude)docs/reviews"
     ":(exclude)docs/progress"
+    ":(exclude)refs/agent-names.md"
     ":(exclude)refs/radar.md"
     ":(exclude)refs/project-memory-aaak.md"
-    ":(exclude)coauthors.csv"
   )
 
   git -C "$worktree_path" diff --stat "$base_ref" -- "${exec_pathspecs[@]}" || true
@@ -1797,44 +1796,6 @@ timestamp_to_epoch() {
   return 1
 }
 
-check_coauthors_staleness() {
-  local root="$1"
-  local coauthors_file now line_no handle owner engine role status updated_at note updated_epoch age
-
-  coauthors_file="$root/coauthors.csv"
-  [[ -f "$coauthors_file" ]] || return 0
-
-  now="$(date +%s)"
-  line_no=0
-
-  while IFS=, read -r handle owner engine role status updated_at note; do
-    line_no=$((line_no + 1))
-
-    if [[ "$line_no" -eq 1 ]]; then
-      continue
-    fi
-
-    if [[ -z "$handle$status$updated_at" || "$status" != "online" ]]; then
-      continue
-    fi
-
-    if [[ -z "$updated_at" ]]; then
-      warn "stale online coauthor without updated_at: ${handle} (${coauthors_file}:${line_no})"
-      continue
-    fi
-
-    if ! updated_epoch="$(timestamp_to_epoch "$updated_at")"; then
-      warn "invalid coauthor timestamp: ${handle} -> ${updated_at} (${coauthors_file}:${line_no})"
-      continue
-    fi
-
-    age=$((now - updated_epoch))
-    if (( age > STALE_COAUTHOR_SECONDS )); then
-      warn "stale online coauthor: ${handle} last updated ${updated_at}"
-    fi
-  done < "$coauthors_file"
-}
-
 check_doi_staleness() {
   local root="$1"
   local now file task_id claimed_at claimed_epoch age claimed_by claimed_thread_id
@@ -1939,7 +1900,6 @@ cmd_check() {
   check_legacy_reply_chains "$semantic_root"
   check_project_memory_links "$semantic_root"
   check_banned_arch_terms "$semantic_root"
-  check_coauthors_staleness "$semantic_root"
   check_doi_staleness "$semantic_root"
   echo "ok"
 }

@@ -522,7 +522,6 @@
             <div class="metric-item"><span>DAG</span><span class="metric-value" style="${m.dag_blocked_total ? 'color: var(--color-blocked)' : ''}">${m.dag_blocked_total}</span></div>
             <div class="metric-item"><span>Steps</span><span class="metric-value" style="${m.progress_open_total ? 'color: var(--color-blocked)' : ''}">${m.progress_open_total}/${m.progress_doc_total}</span></div>
             <div class="metric-item"><span>Docs</span><span class="metric-value">${m.non_task_total + m.review_doc_total}</span></div>
-            <div class="metric-item"><span>Stale</span><span class="metric-value" style="${m.stale_coauthor_total ? 'color: var(--color-blocked)' : ''}">${m.stale_coauthor_total}</span></div>
             <div class="metric-item"><span>Complete</span><span class="metric-value">${Math.round(m.completion_ratio * 100)}%</span></div>
           `;
         } else {

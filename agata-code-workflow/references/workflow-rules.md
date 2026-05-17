@@ -31,6 +31,7 @@
 - `docs/plan/` 只作 legacy 只读目录；不新增、不作为活跃真相、不参与 `task.sh check` 的活跃语义
 - 仍有价值的旧 `docs/plan/*` 迁到 `issues/pl...`；无继续价值的归入 `docs/archive/legacy-plan/`
 - `docs/progress/` 是 task-scoped 执行 workpad，不是第二套 issue 系统
+- `refs/agent-names.md` 是 agent 名字登记，只解决人类呼叫名到 `sid` 的映射；不是任务状态
 - `refs/radar.md` 是观察点日志，只记录“真实但尚未立项”的工程雷达点；不是 backlog、review、progress 或 memory
 - `aidocs/` 只作 AI 协作暂存区，不是真相源，不参与 workflow id、状态、review、memory 判断
 - `active-mainline.md` 只做导航，不承载状态
@@ -291,28 +292,55 @@ unblock_action:
 - 同一失败不允许无限重试；一次恢复周期后，主控 agent 必须接手、重派更小 scope，或把 controlling issue 标 `bkd` 并写明阻断
 - 只有主控 agent 提升后的内容才进入 `tk` / `rv` / memory / mainline
 
-## 5. 协作者名录
+## 5. Agent 名字
 
-允许在仓库根目录放：
+允许在仓库内放：
 
-- `coauthors.csv`
+- `refs/agent-names.md`
 
 它的职责只有一个：
 
-- 提供派单参考，不承载任务状态
+- 解决用户好输入的 agent 名字
 
-最小表头：
+它不负责：
 
-```csv
-handle,owner,engine,role,status,updated_at,note
+- 任务状态
+- 在线状态
+- 心跳
+- 调度权限
+- 长期人格画像
+
+最小格式：
+
+```md
+# Agent Names
+
+## Bindings
+
+| name | sid | slot | engine | role | binding | note |
+|---|---|---|---|---|---|---|
+| neo | sid0008 | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+
+## Pool
+
+- ana
+- ben
+- cal
+- neo
 ```
 
 规则：
 
-- `status` 只用 `online` / `offline`
-- `status` 只作参考，不作自动化门禁
-- 长时间未更新的状态视为不可靠
-- helper `check` 可对 stale online 行报警，但不阻断流程
+- `name` 是人类输入层，不是唯一身份
+- `sid` 是本轮上下文的唯一追责锚
+- `slot` 是可选口头槽位，如 `A` / `B` / `C`
+- `binding` 是物理证据，如 `thread:<id>`
+- 不写 `online` / `offline`；没有心跳，就没有活跃状态
+- `references/agent-names-lib.md` 只是参考名字库；项目可自由增删 `Pool`
+- 用户说“继续 neo 的工作”时，追加新行：`name=neo`、新 `sid`、`note=continue ...`
+- 用户说“取个新名字”时，从项目 `Pool` 取第一个未绑定过的名字
+- 用户指定自定义名时，先查冲突；已存在则问继承还是重置
+- `claimed_by`、review author、commit trailer 优先写 `sid`；`name` 只辅助人读
 
 ## 6. 历史记忆层
 
@@ -451,7 +479,7 @@ review 命名规则：
 
 - 一个活跃 task 默认对应一个专属 worktree
 - 主 checkout 是共享控制面；helper 可从 linked worktree 调用并把真相写回主 checkout
-- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`coauthors.csv` 的权威改动只落在共享控制面
+- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/project-memory-aaak.md` 的权威改动只落在共享控制面
 - linked worktree 里的这些 truth path 只是该分支镜像，不是权威真相视图
 - linked task worktree 若需要写验证记录、review 草稿或实现笔记，先写在非真相路径；不得直接改上述真相路径里的正式文件
 - `tdo -> doi`、`doi -> bkd|cand|dne`、`rv` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
@@ -494,8 +522,8 @@ review 命名规则：
 共享真相可达性规则：
 
 - `pl` 与任何 `tdo` 态文档属于共享待排期真相，不允许只存在于临时 task worktree / snapshot branch
-- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`coauthors.csv` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
-- 判断外来活动线时，先看 task id、state、`claimed_at`、`claimed_by`、`claimed_thread_id`、links、相邻 review / memory 锚点，以及 `coauthors.csv`；没有证据前，不得擅自当成废稿或顺手并入当前提交
+- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/project-memory-aaak.md` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
+- 判断外来活动线时，先看 task id、state、`claimed_at`、`claimed_by`、`claimed_thread_id`、links、相邻 review / radar / memory / agent-name 锚点；没有证据前，不得擅自当成废稿或顺手并入当前提交
 - 未经明确接管，不得删除、改名、暂存或提交外来活动线；当前提交只收自己的真相改动，别线单独报告
 - 若某个 task worktree 中出现了只在本地可见的 `doi` / `rv` / memory 改动，视为控制面漂移；必须先收回主 checkout，再继续执行
 - 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
@@ -655,8 +683,6 @@ action：
 目录：
 
 ```text
-coauthors.csv
-
 issues/
   tk0061.doi.runtime.daily-production-stats-log.p1.md
 
@@ -670,6 +696,7 @@ docs/progress/
   tk0061.s02-fix.doi.md
 
 refs/
+  agent-names.md
   radar.md
   project-memory-aaak.md
 

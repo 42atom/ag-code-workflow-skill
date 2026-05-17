@@ -8,8 +8,8 @@ Apply it whenever you:
 - move an issue between `tdo` / `doi` / `dne`
 - create review records under `docs/reviews/`
 - create progress workpad steps under `docs/progress/`
+- maintain `refs/agent-names.md`
 - maintain `refs/project-memory-aaak.md`
-- validate `coauthors.csv`
 
 Do not create a second state system. The filename state slot is the truth source.
 Use `task.sh move` before manual state-slot rename; manual rename is only a helper-gap fallback and must be followed by `task.sh check`.

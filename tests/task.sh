@@ -907,22 +907,6 @@ assert_contains "$task_stderr" "issue file not found for tk19999" "check should 
 
 rm -rf "$project_root"
 
-######## stale online coauthors should warn without failing
-
-project_root="$(make_project)"
-write_file "$project_root/coauthors.csv" <<'EOF'
-handle,owner,engine,role,status,updated_at,note
-ghost.agent,ghost,codex,worker,online,2000-01-01T00:00:00+00:00,stale online agent
-sleeping.agent,sleeping,claude,worker,offline,2000-01-01T00:00:00+00:00,offline should not warn
-EOF
-
-run_task "$project_root" check
-assert_eq "$task_status" "0" "stale coauthors should not fail check"
-assert_eq "$task_stdout" "ok" "stale coauthors should still finish with ok"
-assert_contains "$task_stderr" "warning: stale online coauthor: ghost.agent" "check should warn about stale online coauthor"
-
-rm -rf "$project_root"
-
 ######## new should allocate ids from the shared control plane
 
 project_root="$(make_git_project)"
@@ -1468,6 +1452,31 @@ EOF
 run_task "$project_root" orphan-scan main
 assert_eq "$task_status" "1" "orphan-scan should fail on untracked radar truth"
 assert_contains "$task_stdout" "worktree ?? refs/radar.md" "orphan-scan should report untracked radar path"
+
+rm -rf "$project_root"
+
+######## orphan-scan should treat refs/agent-names.md as workflow control-plane truth
+
+project_root="$(make_git_project)"
+write_file "$project_root/refs/agent-names.md" <<'EOF'
+# Agent Names
+
+## Bindings
+
+| name | sid | slot | engine | role | binding | note |
+|---|---|---|---|---|---|---|
+| neo | sid0001 | A | codex | frontend | thread:abc | continue tk10060 |
+
+## Pool
+
+- ana
+- ben
+- neo
+EOF
+
+run_task "$project_root" orphan-scan main
+assert_eq "$task_status" "1" "orphan-scan should fail on untracked agent-name truth"
+assert_contains "$task_stdout" "worktree ?? refs/agent-names.md" "orphan-scan should report untracked agent-name path"
 
 rm -rf "$project_root"
 
