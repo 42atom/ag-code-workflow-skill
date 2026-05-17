@@ -46,6 +46,7 @@ assert_contains "$log_file" "^opened: no$"
 assert_contains "$data_file" '"name": "doc-sample"'
 assert_contains "$data_file" '"doc_id": "tk0001"'
 assert_contains "$data_file" '"doc_id": "tk0001.s01-sample"'
+assert_contains "$data_file" '"preview_url"'
 assert_contains "$html_file" 'Agata Progress'
 assert_contains "$html_file" '现状 Current'
 assert_contains "$html_file" '历史 History'
@@ -55,6 +56,11 @@ assert_contains "$html_file" 'Project Memory'
 assert_contains "$html_file" 'Archive Years'
 assert_contains "$html_file" 'agata-progress-data'
 assert_contains "$html_file" 'doc-sample'
+preview_file="$(find "$out_dir_real/md" -type f -name '*.html' | head -n 1)"
+assert_file "$preview_file"
+assert_contains "$preview_file" 'class="markdown-doc"'
+frontmatter_preview="$(grep -rl 'Frontmatter' "$out_dir_real/md" | head -n 1)"
+assert_file "$frontmatter_preview"
 
 rm -rf "$out_dir" "$log_file"
 
@@ -162,6 +168,7 @@ data_file="$out_dir_real/progress-data.json"
 html_file="$out_dir_real/progress-view.html"
 
 assert_contains "$data_file" '"doc_id": "tk10001"'
+assert_contains "$data_file" '"preview_url"'
 assert_contains "$data_file" '"doc_id": "tk10003"'
 assert_contains "$data_file" '"doc_id": "tk10001.rv001-r1"'
 assert_contains "$data_file" '"doc_id": "pl10001.rv001-r1"'

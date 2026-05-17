@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import html
 import json
 import re
 import shutil
@@ -759,6 +761,272 @@ def build_dashboard(project_root: Path) -> dict[str, Any]:
 ######## rendering
 
 
+def preview_file_name(relative_path: str) -> str:
+    digest = hashlib.sha1(relative_path.encode("utf-8")).hexdigest()[:10]
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", relative_path).strip("-") or "doc"
+    return f"{stem[:90]}-{digest}.html"
+
+
+def split_raw_frontmatter(text: str) -> tuple[str, str]:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return "", text
+
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            return "\n".join(lines[1:index]).strip(), "\n".join(lines[index + 1 :]).strip()
+    return "", text
+
+
+def render_inline_markdown(text: str) -> str:
+    chunks: list[str] = []
+    cursor = 0
+    for match in re.finditer(r"`([^`]+)`", text):
+        chunks.append(html.escape(text[cursor:match.start()]))
+        chunks.append(f"<code>{html.escape(match.group(1))}</code>")
+        cursor = match.end()
+    chunks.append(html.escape(text[cursor:]))
+    return "".join(chunks)
+
+
+def render_markdown_blocks(text: str) -> str:
+    blocks: list[str] = []
+    paragraph: list[str] = []
+    list_items: list[str] = []
+    list_tag = "ul"
+    code_lines: list[str] = []
+    code_lang = ""
+    in_code = False
+
+    def flush_paragraph() -> None:
+        nonlocal paragraph
+        if paragraph:
+            blocks.append(f"<p>{render_inline_markdown(' '.join(paragraph))}</p>")
+            paragraph = []
+
+    def flush_list() -> None:
+        nonlocal list_items, list_tag
+        if list_items:
+            items = "".join(f"<li>{render_inline_markdown(item)}</li>" for item in list_items)
+            blocks.append(f"<{list_tag}>{items}</{list_tag}>")
+            list_items = []
+            list_tag = "ul"
+
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+
+        if in_code:
+            if stripped.startswith("```"):
+                lang_class = f" class=\"language-{html.escape(code_lang)}\"" if code_lang else ""
+                code_text = "\n".join(code_lines)
+                blocks.append(f"<pre><code{lang_class}>{html.escape(code_text)}</code></pre>")
+                code_lines = []
+                code_lang = ""
+                in_code = False
+            else:
+                code_lines.append(raw_line)
+            continue
+
+        if stripped.startswith("```"):
+            flush_paragraph()
+            flush_list()
+            in_code = True
+            code_lang = stripped[3:].strip().split(" ", 1)[0]
+            continue
+
+        if not stripped:
+            flush_paragraph()
+            flush_list()
+            continue
+
+        heading = re.match(r"^(#{1,4})\s+(.+)$", stripped)
+        if heading:
+            flush_paragraph()
+            flush_list()
+            level = len(heading.group(1))
+            blocks.append(f"<h{level}>{render_inline_markdown(heading.group(2))}</h{level}>")
+            continue
+
+        unordered = re.match(r"^[-*]\s+(.+)$", stripped)
+        ordered = re.match(r"^\d+\.\s+(.+)$", stripped)
+        if unordered or ordered:
+            flush_paragraph()
+            next_tag = "ol" if ordered else "ul"
+            if list_items and list_tag != next_tag:
+                flush_list()
+            list_tag = next_tag
+            list_items.append((ordered or unordered).group(1))
+            continue
+
+        flush_list()
+        paragraph.append(stripped)
+
+    if in_code:
+        lang_class = f" class=\"language-{html.escape(code_lang)}\"" if code_lang else ""
+        code_text = "\n".join(code_lines)
+        blocks.append(f"<pre><code{lang_class}>{html.escape(code_text)}</code></pre>")
+
+    flush_paragraph()
+    flush_list()
+    return "\n".join(blocks)
+
+
+def render_markdown_preview(source_path: Path, project_root: Path) -> str:
+    text = source_path.read_text(encoding="utf-8")
+    raw_frontmatter, body = split_raw_frontmatter(text)
+    title = first_heading(body) or source_path.stem
+    relative_path = source_path.resolve().relative_to(project_root.resolve())
+    frontmatter_html = ""
+    if raw_frontmatter:
+        frontmatter_html = (
+            "<details class=\"frontmatter\" open>"
+            "<summary>Frontmatter</summary>"
+            f"<pre><code>{html.escape(raw_frontmatter)}</code></pre>"
+            "</details>"
+        )
+
+    return f"""<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(title)}</title>
+  <style>
+    :root {{
+      color-scheme: light;
+      --paper: #fffdf8;
+      --ink: #25211b;
+      --muted: #8a8174;
+      --line: #e8dfd2;
+      --code: #f6f1e9;
+      --accent: #8b5e34;
+    }}
+    body {{
+      margin: 0;
+      background: #f3efe7;
+      color: var(--ink);
+      font: 17px/1.72 ui-serif, Georgia, "Songti SC", "STSong", serif;
+    }}
+    .markdown-doc {{
+      max-width: 920px;
+      margin: 44px auto;
+      padding: 48px 56px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 18px 55px rgba(62, 45, 24, 0.12);
+    }}
+    .path {{
+      margin-bottom: 28px;
+      color: var(--muted);
+      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }}
+    h1, h2, h3, h4 {{
+      line-height: 1.25;
+      margin: 1.9em 0 0.65em;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      letter-spacing: -0.02em;
+    }}
+    h1 {{ margin-top: 0; font-size: 32px; }}
+    h2 {{ font-size: 24px; border-top: 1px solid var(--line); padding-top: 24px; }}
+    h3 {{ font-size: 19px; }}
+    p {{ margin: 0 0 1em; }}
+    ul, ol {{ padding-left: 1.35em; margin: 0 0 1.1em; }}
+    li {{ margin: 0.25em 0; }}
+    code {{
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0.08em 0.32em;
+    }}
+    pre {{
+      overflow: auto;
+      padding: 16px;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      line-height: 1.55;
+    }}
+    pre code {{
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 13px;
+    }}
+    .frontmatter {{
+      margin: 0 0 32px;
+      color: var(--muted);
+    }}
+    .frontmatter summary {{
+      cursor: pointer;
+      color: var(--accent);
+      font: 700 13px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }}
+    @media (max-width: 760px) {{
+      .markdown-doc {{
+        margin: 0;
+        padding: 28px 22px;
+        border: 0;
+        border-radius: 0;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <main class="markdown-doc">
+    <div class="path">{html.escape(str(relative_path))}</div>
+    {frontmatter_html}
+    {render_markdown_blocks(body)}
+  </main>
+</body>
+</html>
+"""
+
+
+def attach_preview_urls(payload: dict[str, Any], out_dir: Path, project_root: Path) -> None:
+    preview_dir = out_dir / "md"
+    if preview_dir.exists():
+        shutil.rmtree(preview_dir)
+    rendered: dict[str, str] = {}
+    project_root_resolved = project_root.resolve()
+
+    def source_for(record: dict[str, Any]) -> Path | None:
+        raw_path = record.get("path") or record.get("relative_path")
+        if not isinstance(raw_path, str) or not raw_path.endswith(".md"):
+            return None
+        source_path = Path(raw_path)
+        if not source_path.is_absolute():
+            source_path = project_root_resolved / raw_path
+        try:
+            source_path.resolve().relative_to(project_root_resolved)
+        except ValueError:
+            return None
+        return source_path if source_path.is_file() else None
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            source_path = source_for(value)
+            if source_path:
+                relative_path = str(source_path.resolve().relative_to(project_root_resolved))
+                if relative_path not in rendered:
+                    preview_dir.mkdir(parents=True, exist_ok=True)
+                    preview_path = preview_dir / preview_file_name(relative_path)
+                    preview_path.write_text(render_markdown_preview(source_path, project_root_resolved), encoding="utf-8")
+                    rendered[relative_path] = preview_path.resolve().as_uri()
+                value["preview_url"] = rendered[relative_path]
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(payload)
+
+
 def inject_template(template: str, payload: dict[str, Any]) -> str:
     data_text = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
     return (
@@ -769,8 +1037,9 @@ def inject_template(template: str, payload: dict[str, Any]) -> str:
     )
 
 
-def write_outputs(out_dir: Path, payload: dict[str, Any], template: str) -> tuple[Path, Path]:
+def write_outputs(out_dir: Path, project_root: Path, payload: dict[str, Any], template: str) -> tuple[Path, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    attach_preview_urls(payload, out_dir, project_root)
     data_path = out_dir / "progress-data.json"
     html_path = out_dir / "progress-view.html"
 
@@ -815,7 +1084,7 @@ def main() -> int:
 
     payload = build_dashboard(project_root)
     template = load_template(script_path, args.template)
-    data_path, html_path = write_outputs(out_dir, payload, template)
+    data_path, html_path = write_outputs(out_dir, project_root, payload, template)
     opened = maybe_open(html_path, not args.no_open)
 
     print(f"data: {data_path}")
