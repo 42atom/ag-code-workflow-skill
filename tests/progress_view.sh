@@ -82,6 +82,10 @@ links:
     - docs/reviews/tk10001.rv001-r1-gemini.md
     - tk10003
 ---
+
+# Viewer Test
+
+Render **bold-sample** text.
 EOF
 
 write_file "$project_root/issues/pl10001.tdo.runtime.viewer-plan.md" <<'EOF'
@@ -188,6 +192,8 @@ assert_contains "$data_file" '"progress_open_count": 1'
 assert_contains "$data_file" '"active_progress"'
 assert_contains "$data_file" '"ready_status": "dag-blocked"'
 assert_contains "$data_file" '"year": "2026"'
+bold_preview="$(grep -rl '<strong>bold-sample</strong>' "$out_dir_real/md" | head -n 1)"
+assert_file "$bold_preview"
 python3 - "$data_file" <<'PY'
 import json
 import sys

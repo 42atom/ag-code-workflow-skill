@@ -811,14 +811,25 @@ def split_raw_frontmatter(text: str) -> tuple[str, str]:
     return "", text
 
 
+def render_inline_plain(text: str) -> str:
+    chunks: list[str] = []
+    cursor = 0
+    for match in re.finditer(r"\*\*([^\n]+?)\*\*", text):
+        chunks.append(html.escape(text[cursor:match.start()]))
+        chunks.append(f"<strong>{html.escape(match.group(1))}</strong>")
+        cursor = match.end()
+    chunks.append(html.escape(text[cursor:]))
+    return "".join(chunks)
+
+
 def render_inline_markdown(text: str) -> str:
     chunks: list[str] = []
     cursor = 0
     for match in re.finditer(r"`([^`]+)`", text):
-        chunks.append(html.escape(text[cursor:match.start()]))
+        chunks.append(render_inline_plain(text[cursor:match.start()]))
         chunks.append(f"<code>{html.escape(match.group(1))}</code>")
         cursor = match.end()
-    chunks.append(html.escape(text[cursor:]))
+    chunks.append(render_inline_plain(text[cursor:]))
     return "".join(chunks)
 
 
