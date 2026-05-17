@@ -86,6 +86,17 @@ links:
 # Viewer Test
 
 Render **bold-sample** text.
+
+- [x] checked item
+- [ ] unchecked item
+
+> quoted **text**
+
+| Column | Value |
+|---|---|
+| alpha | **beta** |
+
+[example](https://example.com)
 EOF
 
 write_file "$project_root/issues/pl10001.tdo.runtime.viewer-plan.md" <<'EOF'
@@ -194,6 +205,14 @@ assert_contains "$data_file" '"ready_status": "dag-blocked"'
 assert_contains "$data_file" '"year": "2026"'
 bold_preview="$(grep -rl '<strong>bold-sample</strong>' "$out_dir_real/md" | head -n 1)"
 assert_file "$bold_preview"
+table_preview="$(grep -rl '<table>' "$out_dir_real/md" | head -n 1)"
+assert_file "$table_preview"
+checked_preview="$(grep -rl '<input type="checkbox" disabled checked>' "$out_dir_real/md" | head -n 1)"
+assert_file "$checked_preview"
+quote_preview="$(grep -rl '<blockquote>quoted <strong>text</strong></blockquote>' "$out_dir_real/md" | head -n 1)"
+assert_file "$quote_preview"
+link_preview="$(grep -rl '<a href="https://example.com">example</a>' "$out_dir_real/md" | head -n 1)"
+assert_file "$link_preview"
 python3 - "$data_file" <<'PY'
 import json
 import sys

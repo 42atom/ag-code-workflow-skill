@@ -814,12 +814,39 @@ def split_raw_frontmatter(text: str) -> tuple[str, str]:
 def render_inline_plain(text: str) -> str:
     chunks: list[str] = []
     cursor = 0
-    for match in re.finditer(r"\*\*([^\n]+?)\*\*", text):
+    inline_pattern = re.compile(r"\[([^\]\n]+)\]\(([^)\n]+)\)|\*\*([^\n]+?)\*\*")
+    for match in inline_pattern.finditer(text):
         chunks.append(html.escape(text[cursor:match.start()]))
-        chunks.append(f"<strong>{html.escape(match.group(1))}</strong>")
+        if match.group(1) is not None:
+            label = html.escape(match.group(1))
+            href = html.escape(match.group(2).strip(), quote=True)
+            chunks.append(f"<a href=\"{href}\">{label}</a>")
+        else:
+            chunks.append(f"<strong>{html.escape(match.group(3))}</strong>")
         cursor = match.end()
     chunks.append(html.escape(text[cursor:]))
     return "".join(chunks)
+
+
+def split_table_row(line: str) -> list[str]:
+    trimmed = line.strip().strip("|")
+    return [cell.strip() for cell in trimmed.split("|")]
+
+
+def is_table_divider(line: str) -> bool:
+    cells = split_table_row(line)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+
+def render_table(header_line: str, rows: list[str]) -> str:
+    headers = split_table_row(header_line)
+    body_rows = [split_table_row(row) for row in rows]
+    head_html = "".join(f"<th>{render_inline_markdown(cell)}</th>" for cell in headers)
+    body_html = "".join(
+        "<tr>" + "".join(f"<td>{render_inline_markdown(cell)}</td>" for cell in row) + "</tr>"
+        for row in body_rows
+    )
+    return f"<table><thead><tr>{head_html}</tr></thead><tbody>{body_html}</tbody></table>"
 
 
 def render_inline_markdown(text: str) -> str:
@@ -838,6 +865,8 @@ def render_markdown_blocks(text: str) -> str:
     paragraph: list[str] = []
     list_items: list[str] = []
     list_tag = "ul"
+    table_header = ""
+    table_rows: list[str] = []
     code_lines: list[str] = []
     code_lang = ""
     in_code = False
@@ -851,12 +880,20 @@ def render_markdown_blocks(text: str) -> str:
     def flush_list() -> None:
         nonlocal list_items, list_tag
         if list_items:
-            items = "".join(f"<li>{render_inline_markdown(item)}</li>" for item in list_items)
+            items = "".join(item for item in list_items)
             blocks.append(f"<{list_tag}>{items}</{list_tag}>")
             list_items = []
             list_tag = "ul"
 
-    for raw_line in text.splitlines():
+    def flush_table() -> None:
+        nonlocal table_header, table_rows
+        if table_header:
+            blocks.append(render_table(table_header, table_rows))
+            table_header = ""
+            table_rows = []
+
+    lines = text.splitlines()
+    for index, raw_line in enumerate(lines):
         stripped = raw_line.strip()
 
         if in_code:
@@ -874,6 +911,7 @@ def render_markdown_blocks(text: str) -> str:
         if stripped.startswith("```"):
             flush_paragraph()
             flush_list()
+            flush_table()
             in_code = True
             code_lang = stripped[3:].strip().split(" ", 1)[0]
             continue
@@ -881,28 +919,69 @@ def render_markdown_blocks(text: str) -> str:
         if not stripped:
             flush_paragraph()
             flush_list()
+            flush_table()
             continue
+
+        if table_header and is_table_divider(stripped):
+            continue
+
+        if table_header and "|" in stripped:
+            flush_paragraph()
+            flush_list()
+            table_rows.append(stripped)
+            continue
+
+        if table_header:
+            flush_table()
 
         heading = re.match(r"^(#{1,4})\s+(.+)$", stripped)
         if heading:
             flush_paragraph()
             flush_list()
+            flush_table()
             level = len(heading.group(1))
             blocks.append(f"<h{level}>{render_inline_markdown(heading.group(2))}</h{level}>")
             continue
+
+        if "|" in stripped:
+            next_line = lines[index + 1].strip() if index + 1 < len(lines) else ""
+            if "|" in next_line and is_table_divider(next_line):
+                flush_paragraph()
+                flush_list()
+                table_header = stripped
+                continue
 
         unordered = re.match(r"^[-*]\s+(.+)$", stripped)
         ordered = re.match(r"^\d+\.\s+(.+)$", stripped)
         if unordered or ordered:
             flush_paragraph()
+            flush_table()
             next_tag = "ol" if ordered else "ul"
             if list_items and list_tag != next_tag:
                 flush_list()
             list_tag = next_tag
-            list_items.append((ordered or unordered).group(1))
+            item_text = (ordered or unordered).group(1)
+            task = re.match(r"^\[( |x|X)\]\s+(.+)$", item_text)
+            if task:
+                checked = " checked" if task.group(1).lower() == "x" else ""
+                list_items.append(
+                    f"<li class=\"task-item\"><input type=\"checkbox\" disabled{checked}>"
+                    f"<span>{render_inline_markdown(task.group(2))}</span></li>"
+                )
+            else:
+                list_items.append(f"<li>{render_inline_markdown(item_text)}</li>")
+            continue
+
+        quote = re.match(r"^>\s?(.*)$", stripped)
+        if quote:
+            flush_paragraph()
+            flush_list()
+            flush_table()
+            blocks.append(f"<blockquote>{render_inline_markdown(quote.group(1))}</blockquote>")
             continue
 
         flush_list()
+        flush_table()
         paragraph.append(stripped)
 
     if in_code:
@@ -912,6 +991,7 @@ def render_markdown_blocks(text: str) -> str:
 
     flush_paragraph()
     flush_list()
+    flush_table()
     return "\n".join(blocks)
 
 
@@ -978,6 +1058,34 @@ def render_markdown_preview(source_path: Path, project_root: Path) -> str:
     p {{ margin: 0 0 0.72em; }}
     ul, ol {{ padding-left: 1.25em; margin: 0 0 0.82em; }}
     li {{ margin: 0.12em 0; }}
+    a {{ color: #8a4f19; text-decoration-thickness: 1px; text-underline-offset: 2px; }}
+    blockquote {{
+      margin: 0 0 0.8em;
+      padding: 0.2em 0 0.2em 0.9em;
+      border-left: 3px solid var(--line);
+      color: #5f564b;
+    }}
+    table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 0.9em;
+      font-size: 14px;
+    }}
+    th, td {{
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{ background: #f7f1e7; font-weight: 700; }}
+    .task-item {{
+      list-style: none;
+      margin-left: -1.2em;
+      display: flex;
+      gap: 0.45em;
+      align-items: flex-start;
+    }}
+    .task-item input {{ margin-top: 0.35em; }}
     code {{
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.92em;
