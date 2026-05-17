@@ -210,8 +210,10 @@ Rules:
 - `name` is for human input.
 - `sid` is the durable audit id.
 - Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
+- If no thread id exists, derive `sid` from timestamp plus short random or local unique suffix, for example `sid260517-ab3d`. Never use global pure counters.
 - `slot` is optional call shorthand such as `A` / `B` / `C`.
 - `binding` is physical evidence, usually `thread:<id>`.
+- If the same `sid` has multiple binding rows, the latest row in `refs/agent-names.md` is the current human-name mapping.
 - No `online` / `offline`; there is no heartbeat.
 - Do not use `name` as `claimed_by`, review author, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
@@ -221,6 +223,7 @@ Rules:
 - If the user says "take a new name", pick the first unused project-pool name in interactive work only.
 - If the pool is exhausted, keep using `sid` and ask the user to add names later.
 - If the user gives a custom name that already exists, ask whether to continue that name or reset it in interactive work; in non-interactive work, keep using `sid`.
+- This file may be manually trimmed or archived when it gets long. Keep recent and useful mappings; Git history is the audit trail for older rows.
 
 Minimal shape:
 

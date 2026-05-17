@@ -244,12 +244,15 @@ Rules:
 - `name` is for human input.
 - `sid` is the durable audit id.
 - Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
+- If no thread id exists, derive `sid` from timestamp plus short random or local unique suffix, for example `sid260517-ab3d`. Never use global pure counters.
 - `binding` is physical evidence, usually `thread:<id>`.
+- If the same `sid` has multiple binding rows, the latest row in `refs/agent-names.md` is the current human-name mapping.
 - No `online` / `offline`; there is no heartbeat.
 - Do not write this file at session startup.
 - Do not ask for names in non-interactive or background work. Use only `sid`.
 - Do not use `name` as review author, `claimed_by`, or commit trailer identity when `sid` exists.
 - `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
+- This file may be manually trimmed or archived when it gets long. Git history is the audit trail for older rows.
 
 If a task declares:
 

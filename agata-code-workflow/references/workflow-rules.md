@@ -334,8 +334,10 @@ unblock_action:
 - `name` 是人类输入层，不是唯一身份
 - `sid` 是本轮上下文的唯一追责锚
 - 有物理 thread id 时，从 thread id 派生 `sid`，如 `sid019dd9af`；不从 `refs/agent-names.md` 顺序发号
+- 没有 thread id 时，用时间戳加短随机或本地唯一后缀派生 `sid`，如 `sid260517-ab3d`；禁止全局纯自增
 - `slot` 是可选口头槽位，如 `A` / `B` / `C`
 - `binding` 是物理证据，如 `thread:<id>`
+- 同一 `sid` 出现多行时，以 `refs/agent-names.md` 中最新一行为当前人名映射
 - 不写 `online` / `offline`；没有心跳，就没有活跃状态
 - `references/agent-names-lib.md` 只是参考名字库；项目可自由增删 `Pool`
 - session 启动时不自动写 `refs/agent-names.md`
@@ -345,6 +347,7 @@ unblock_action:
 - `Pool` 耗尽时不自动造名，继续用 `sid`，提示用户后续补名字
 - 用户指定自定义名时，先查冲突；已存在则在交互场景问继承还是重置，非交互场景只用 `sid`
 - `claimed_by`、review author、commit trailer 优先写 `sid`；`name` 只辅助人读
+- 文件变长时允许人工裁剪或归档旧行，只保留近期有用映射；旧映射由 Git 历史承担审计
 
 ## 6. 历史记忆层
 
