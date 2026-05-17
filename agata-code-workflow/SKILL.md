@@ -201,31 +201,17 @@ Minimal shape:
 
 ## Agent Names
 
-Use `refs/agent-names.md` only when the user wants short names for agent sessions.
-
-This file records user naming intent, not automatic session registration. It solves naming, not scheduling.
+Interactive new sessions should ask whether to take a new name or inherit an old one. Ask only about `name`; do not show `sid`.
 
 Rules:
 
-- `name` is for human input.
-- `sid` is the durable audit id.
-- Do not expose `sid` in normal user-facing identity prompts. Ask about `name`; keep `sid` for files, review authors, and commit trailers.
-- Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
-- If no thread id exists, derive `sid` from timestamp plus short random or local unique suffix, for example `sid260517-ab3d`. Never use global pure counters.
-- `slot` is optional call shorthand such as `A` / `B` / `C`.
-- `binding` is physical evidence, usually `thread:<id>`.
-- If the same `sid` has multiple binding rows, the latest row in `refs/agent-names.md` is the current human-name mapping.
+- `refs/agent-names.md` records user naming intent.
+- Do not write it until the user confirms a name.
+- Non-interactive/background work uses only `sid` and never asks.
+- Use `sid` for `claimed_by`, review author, and commit trailers.
+- Derive `sid` from thread id when available; otherwise use timestamp plus short random or local unique suffix.
+- Never use global counters.
 - No `online` / `offline`; there is no heartbeat.
-- Do not use `name` as `claimed_by`, review author, or commit trailer identity when `sid` exists.
-- `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
-- Do not write this file at session startup.
-- In an interactive new session, proactively ask the user whether to inherit an existing name or take a new name. Ask only about `name`, not `sid`.
-- Do not ask for a name in non-interactive or background work. Use only `sid`.
-- If the user says "continue neo", append a binding row for `neo` with the current `sid`.
-- If the user says "take a new name", pick the first unused project-pool name in interactive work only.
-- If the pool is exhausted, keep using `sid` and ask the user to add names later.
-- If the user gives a custom name that already exists, ask whether to continue that name or reset it in interactive work; in non-interactive work, keep using `sid`.
-- This file may be manually trimmed or archived when it gets long. Keep recent and useful mappings; Git history is the audit trail for older rows.
 
 Minimal shape:
 

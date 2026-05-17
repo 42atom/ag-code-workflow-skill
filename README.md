@@ -217,8 +217,7 @@ When the trigger fires, open a `tk`, change `态:` to `promoted`, and add `升: 
 
 ## Agent Names
 
-Use `refs/agent-names.md` only when the user wants short names for agent sessions.
-It records user naming intent, not automatic session registration.
+Interactive new sessions ask for a new or inherited name. `refs/agent-names.md` records confirmed naming intent only.
 
 Project shape:
 
@@ -241,20 +240,12 @@ Project shape:
 
 Rules:
 
-- `name` is for human input.
-- `sid` is the durable audit id.
-- Do not expose `sid` in normal user-facing identity prompts. Ask about `name`; keep `sid` for files, review authors, and commit trailers.
-- Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
-- If no thread id exists, derive `sid` from timestamp plus short random or local unique suffix, for example `sid260517-ab3d`. Never use global pure counters.
-- `binding` is physical evidence, usually `thread:<id>`.
-- If the same `sid` has multiple binding rows, the latest row in `refs/agent-names.md` is the current human-name mapping.
+- Ask users only about `name`; keep `sid` for files, review authors, and commit trailers.
+- Write `refs/agent-names.md` only after user confirmation.
+- Non-interactive/background work uses only `sid`.
+- Derive `sid` from thread id when available; otherwise use timestamp plus short random or local unique suffix.
+- Never use global counters.
 - No `online` / `offline`; there is no heartbeat.
-- Do not write this file at session startup.
-- In an interactive new session, proactively ask the user whether to inherit an existing name or take a new name. Ask only about `name`, not `sid`.
-- Do not ask for names in non-interactive or background work. Use only `sid`.
-- Do not use `name` as review author, `claimed_by`, or commit trailer identity when `sid` exists.
-- `references/agent-names-lib.md` is only a starter list. Users may edit the project pool freely.
-- This file may be manually trimmed or archived when it gets long. Git history is the audit trail for older rows.
 
 If a task declares:
 
