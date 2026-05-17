@@ -243,6 +243,7 @@ Rules:
 
 - `name` is for human input.
 - `sid` is the durable audit id.
+- Do not expose `sid` in normal user-facing identity prompts. Ask about `name`; keep `sid` for files, review authors, and commit trailers.
 - Derive `sid` from the physical thread id when available, for example `sid019dd9af`; do not allocate sequential `sid` values from this file.
 - If no thread id exists, derive `sid` from timestamp plus short random or local unique suffix, for example `sid260517-ab3d`. Never use global pure counters.
 - `binding` is physical evidence, usually `thread:<id>`.
