@@ -228,7 +228,7 @@ Project shape:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 
@@ -241,6 +241,7 @@ Project shape:
 Rules:
 
 - Ask users only about `name`; keep `sid` for files, review authors, and commit trailers.
+- `engine` must be the current runtime, such as `codex`, `claude`, or `gemini`; do not copy example values.
 - Write `refs/agent-names.md` only after user confirmation.
 - Non-interactive/background work uses only `sid`.
 - Derive `sid` from thread id when available; otherwise use timestamp plus short random or local unique suffix.

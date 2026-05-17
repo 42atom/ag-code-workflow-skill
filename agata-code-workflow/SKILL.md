@@ -209,6 +209,7 @@ Rules:
 - Do not write it until the user confirms a name.
 - Non-interactive/background work uses only `sid` and never asks.
 - Use `sid` for `claimed_by`, review author, and commit trailers.
+- `engine` must be the current runtime, such as `codex`, `claude`, or `gemini`; do not copy example values.
 - Derive `sid` from thread id when available; otherwise use timestamp plus short random or local unique suffix.
 - Never use global counters.
 - No `online` / `offline`; there is no heartbeat.
@@ -222,7 +223,7 @@ Minimal shape:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 

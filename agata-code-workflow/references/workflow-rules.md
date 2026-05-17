@@ -319,7 +319,7 @@ unblock_action:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | codex | frontend | thread:019dd9af... | continue tk1021 |
+| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
 
 ## Pool
 
@@ -334,6 +334,7 @@ unblock_action:
 - `name` 是人类输入层，不是唯一身份
 - `sid` 是本轮上下文的唯一追责锚
 - 日常身份初始化只问 `name`，不要主动把 `sid` 暴露给用户；`sid` 只用于文件、review author、commit trailer
+- `engine` 必须写当前 runtime，如 `codex` / `claude` / `gemini`；不要照抄示例值
 - 有物理 thread id 时，从 thread id 派生 `sid`，如 `sid019dd9af`；不从 `refs/agent-names.md` 顺序发号
 - 没有 thread id 时，用时间戳加短随机或本地唯一后缀派生 `sid`，如 `sid260517-ab3d`；禁止全局纯自增
 - `slot` 是可选口头槽位，如 `A` / `B` / `C`
