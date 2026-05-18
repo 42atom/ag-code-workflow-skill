@@ -292,6 +292,7 @@ Formal `rv` files need one existing parent issue.
 - A passing `task.sh check` is a semantic verdict, not an ownership verdict. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
 - On the shared control plane, unrelated edits under `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, or `refs/project-memory-aaak.md`, plus untracked `tk` / `pl` / `rs` / `rf` / `rv` files, are foreign active lines by default, not "noise".
 - Before touching a foreign active line, inspect the task id, state, `claimed_at`, `claimed_by`, `claimed_thread_id`, links, nearby review, radar, memory, or agent-name anchors when present. Use those signals to decide whether someone else is actively landing truth.
+- State-slot renames are expected workflow truth diffs, not contamination, when they belong to the current issue line. Prefer committing them as a separate workflow truth commit from code changes.
 - On the same task line, control-plane writes are serial by default. Do not pipeline `move` calls such as `tdo -> doi -> dne`; each step must land, then re-read truth and gates before the next step.
 - Unless you are explicitly taking over, do not delete, rename, stage, or fold a foreign active line into your own commit. Commit only your own truth edits and report the other active line separately.
 
