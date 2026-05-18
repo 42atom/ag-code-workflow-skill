@@ -47,6 +47,7 @@ Do not invent a second state system. The filename state slot is the truth source
 14. `cand` means withdrawn from active required work; it does not mean candidate backlog.
 15. `refs/radar.md` is a low-trust observation log, not backlog, task truth, review evidence, progress, review-nit storage, or project memory.
 16. Files are truth, filenames are indexes, generated cache is projection, bodies are evidence, and the primary agent makes closure decisions.
+17. `refs/graph.md` stores durable typed relations for context synthesis. It is not task truth, project memory, radar, or raw timeline.
 
 ## Workflow
 
@@ -135,6 +136,7 @@ Default read surface:
 - `refs/agent-names.md` only when assigning or resolving an agent name
 - matching `refs/radar.md` entries when creating, deduplicating, or triaging tasks
 - relevant anchors in `refs/project-memory-aaak.md`
+- `refs/graph.md` when continuing a product or architecture line by concept name
 
 Do not bulk-read:
 
@@ -154,6 +156,7 @@ Default issue frontmatter stays small:
 - `recap` compresses reading context; it does not override filename state, `accept`, `depends_on`, or review evidence.
 - `depends_on` is only for required DAG predecessors.
 - `links` is only for evidence, references, review anchors, progress anchors, memory anchors, or related docs.
+- `links` says "related"; `refs/graph.md` says how stable concepts relate.
 - Do not put `reviewer` in default `tk` / `pl` / `rs` / `rf` frontmatter. Reviewers are runtime participants; review truth lives in `rv` records.
 - `claimed_*`, `code_version`, and `verify` are state or closure evidence fields. Do not add them to fresh `tdo` templates.
 
@@ -386,6 +389,12 @@ Read `refs/radar.md` when:
 - doing periodic observation cleanup
 - seeing a trigger that may promote an observation to a task
 
+Read `refs/graph.md` when:
+
+- continuing a named product or architecture line
+- resolving stable concept ownership
+- assembling context before semantic retrieval
+
 Read `refs/agent-names.md` when:
 
 - the user asks this session to inherit a name
@@ -420,6 +429,7 @@ Typical cases:
 - After any live repro, compiled-app verification, or runtime trace that changes the current diagnosis, first write back a minimal truth resync note to the controlling workflow artifact before continuing. That note must say: scene, observed truth, root-cause or boundary judgment, and the next cut.
 - Do not start the next fix while the controlling `tk` / `rv` still reflects an older diagnosis than the latest live evidence.
 - If a linked worktree needs to write task notes, progress drafts, review drafts, radar drafts, or agent-name drafts, keep them outside the truth-source paths until they are ready to land on the control plane.
+- Only the primary agent promotes stable relations to `refs/graph.md`; workers and reviewers may only suggest `graph_candidate` in their own handoff or `rv`.
 - For ordinary docs, prefer updating the canonical doc instead of creating a parallel note with overlapping scope.
 - If a new review artifact is needed, make it parent-first and minimal.
 - If a request can be answered by renaming an existing file, do that instead of adding a layer.
