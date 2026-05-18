@@ -48,6 +48,7 @@ Do not invent a second state system. The filename state slot is the truth source
 15. `refs/radar.md` is a low-trust observation log, not backlog, task truth, review evidence, progress, review-nit storage, or project memory.
 16. Files are truth, filenames are indexes, generated cache is projection, bodies are evidence, and the primary agent makes closure decisions.
 17. `refs/graph.md` stores durable typed relations for context synthesis. It is not task truth, project memory, radar, or raw timeline.
+18. Generated task graphs are disposable projections from `issues/`, `docs/progress/`, `docs/reviews/`, and `refs/radar.md`. Neither `refs/graph.md` nor generated graphs may introduce task status, owner, or completion truth.
 
 ## Workflow
 
