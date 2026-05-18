@@ -49,6 +49,8 @@ Do not invent a second state system. The filename state slot is the truth source
 16. Files are truth, filenames are indexes, generated cache is projection, bodies are evidence, and the primary agent makes closure decisions.
 17. `refs/graph.md` stores durable typed relations for context synthesis. It is not task truth, project memory, radar, or raw timeline.
 18. Generated task graphs are disposable projections from `issues/`, `docs/progress/`, `docs/reviews/`, and `refs/radar.md`. Neither `refs/graph.md` nor generated graphs may introduce task status, owner, or completion truth.
+19. A new `refs/graph.md` entity must be cited by 3+ stable docs/tasks, act as a relation hub, or prevent context synthesis from guessing.
+20. Default `refs/graph.md` fields are only `type`, `defined_by`, `uses`, `used_by`, `avoids`, `related_to`, `separate_from`, `records`, and `updated`; do not add a new entity or edge type unless existing fields cannot express it.
 
 ## Workflow
 
