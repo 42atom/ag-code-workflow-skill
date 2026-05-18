@@ -5,6 +5,18 @@ description: Use when the user wants to create, update, review, or validate Agat
 
 # Agata Code Workflow
 
+## Position
+
+This skill is the file-based execution substrate for async engineering agents.
+
+It turns async delegation into an auditable engineering flow:
+
+```text
+goal -> issue truth -> isolated execution -> progress evidence -> review evidence -> verified close-out -> durable memory/graph
+```
+
+It is not a chat protocol, scheduler, project manager, graph database, or orchestration platform.
+
 Use this skill when work touches the file-based workflow itself:
 
 - create or rename `tk` / `pl` / `rs` / `rv` files
