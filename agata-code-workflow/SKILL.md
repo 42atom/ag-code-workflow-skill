@@ -139,6 +139,7 @@ Do not invent a second state system. The filename state slot is the truth source
 63. Use `aidocs/` only for raw input, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated read-only views. Before closure, promote durable material to its real owner: `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, `refs/project-memory-aaak.md`, `docs/`, or the product asset tree.
 64. Use `depends_on` for required DAG predecessors. A `tdo` issue with unmet `depends_on` remains in the backlog but is not ready to dispatch. Do not use `cand` to mean dependency-waiting required work.
 65. `issues/` root is the live working set plus a small warm buffer of recent `dne` docs. After close-out, run `task.sh archive-done --keep 32` as context hygiene; it physically moves older `dne` docs to `issues/archive/YYYY/` without changing their state. Directory location expresses hot/cold storage; the filename state slot still expresses lifecycle.
+66. Reopen a closed issue only with `task.sh reopen <id> <reason>`. This is for the same unfinished acceptance line, not new scope. If the issue is archived, `reopen` returns it to `issues/` root and moves it to `doi`.
 
 ## Selective Reading
 
@@ -346,6 +347,7 @@ Current commands:
 - `task.sh find <id>`
 - `task.sh show <task-id>`
 - `task.sh move <issue-id> <state>`
+- `task.sh reopen <issue-id> <reason>`
 - `task.sh archive <task-id>`
 - `task.sh archive-done [--keep N]`
 - `task.sh prune <task-id> <base-ref>`
@@ -361,7 +363,8 @@ For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`
 `task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.
 For `task.sh move`, `<issue-id>` may be `tkNNNN`, `plNNNN`, `rsNNNN`, or `rfNNNN`; a bare numeric id still means `tkNNNN`.
 For `task.sh move <id> doi`, the helper stamps `claimed_at`, `claimed_by`, and, when available, `claimed_thread_id`. You can override the coarse claimant with `AGATA_CLAIMANT` and the thread marker with `AGATA_CLAIM_THREAD_ID`.
-`task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
+For `task.sh reopen <id> <reason>`, the helper only accepts current or archived `dne` issues, moves them to root `doi`, stamps `reopened_at` / `reopen_reason` plus claim fields, and preserves older `code_version` / `verify` as historical close evidence. Use it only when the original acceptance was not actually satisfied; new scope gets a new `tk`.
+`task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `reopen`, `archive`, and `prune` may be called from a linked worktree, but they must resolve truth against the shared control plane instead of the local mirror paths.
 Use `task.sh check` on the current worktree when you need to catch linked-worktree truth pollution or contamination. Its local view is only for that pollution guard; the rest of the workflow semantics still resolve against the control plane.
 Use `task.sh orphan-scan` when you need current-worktree truth drift plus shared-ref comparison before cleanup or recovery.
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die. It re-checks workflow truth, blocks `doi` / `bkd`, and only removes a single linked worktree whose execution diff is already drained against the chosen base ref. It also refuses to delete the worktree that contains the current shell cwd.
@@ -455,7 +458,7 @@ Typical cases:
 - Close tasks with scoped evidence only. Do not generalize to the whole repo or all worktrees.
 - For cleanup, say only that the current task's bound worktree and local branch were reclaimed. Do not say things like "only the root repo remains" or "everything was cleaned".
 - Call unrelated shared-control-plane changes `foreign active lines`, not "noise" or generic dirty state.
-- If new scope appears after a task is already `dne`, say it needs a new `tk` instead of writing back into the closed task.
+- If new scope appears after a task is already `dne`, say it needs a new `tk`; if the same acceptance line was closed incorrectly, use `task.sh reopen <id> <reason>`.
 - Before a close-out reply, you may add one thin `全场快速扫视`: control plane first, worktrees second, compressed conclusion only.
 - A `全场快速扫视` reports only foreign active lines plus the remaining foreign worktree count or coarse ownership, and says they were not taken over.
 - When a phase or round is finished, make the response's last line exactly one next-step marker:

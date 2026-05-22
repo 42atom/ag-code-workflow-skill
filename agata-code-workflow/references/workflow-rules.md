@@ -451,6 +451,14 @@ unblock_action:
 - 任意中间态可进 `bkd`
 - 任意非终态可进 `cand`
 - `dne` / `cand` 可选进 `arvd`
+- `dne -> doi` 只能走 `task.sh reopen <id> <reason>`，不属于普通 `move`
+
+重开规则：
+
+- 只用于同一验收线未真正满足、验证证据失效、review/smoke/用户验收发现原范围缺口
+- 新需求、新 owner、新模块、新验收线、后续别的改动引入的回归，一律新建 `tk` 并链接旧单
+- 如果原单在 `issues/archive/YYYY/`，`reopen` 先把它移回 `issues/` 根目录，再改为 `doi`
+- 旧 `code_version` / `verify` 保留为历史关闭证据；再次收口时写新的关闭证据
 
 任务与评审分工：
 
@@ -629,6 +637,7 @@ action：
 - 不手工在并发 shell 里做 `max(id)+1` 发号
 - `task.sh move <id> <state>` 支持 `tkNNNN` / `plNNNN` / `rsNNNN` / `rfNNNN`，裸数字仍默认 `tkNNNN`
 - `task.sh move <id> doi` 会写入 `claimed_at`、`claimed_by`，以及当前 runtime 能提供时的 `claimed_thread_id`
+- `task.sh reopen <id> <reason>` 只接受当前或已归档的 `dne` issue，写入 `reopened_at` / `reopen_reason`，并重新写入 `claimed_*`
 - `move` 是单步控制面动作，不是流水线；尤其 `dne` / `arvd` 这类带 gate 的状态，必须等上一步成功落盘并重读真相后再推进
 - `task.sh check` 对缺失 `claimed_at` 或长时间未推进的 `doi` 发警告，不自动回滚、不新增旁路锁文件
 - 当多个 agent 共享同一个引擎名（例如都叫 `codex`）时，`claimed_thread_id` 是主识别信号；`claimed_by` 只保留粗粒度身份
@@ -669,7 +678,7 @@ action：
 - 收尾说明只写当前 task 的终态、证据和回收；不替整个 repo、全部 worktree 或别的任务下结论
 - 清理结果只写“仅回收当前 task 绑定的 worktree / 本地分支”；不写“只剩根仓”“都清掉了”这类 repo 级表述
 - 共享控制面上的别线统一叫“外来活动线”，不叫“噪声”或“无关脏改”
-- 若任务已 `dne`，后续新增范围一律表述为“另开新 tk”，不回写已关闭任务
+- 若任务已 `dne`，新增范围一律另开 `tk`；同一验收线被错误关闭，才用 `task.sh reopen <id> <reason>`
 - 收尾前可选做一次“全场快速扫视”：先看控制面外来活动线，再看执行面 worktree，只报压缩结论，不展开全场明细
 - “全场快速扫视”只报外来活动线的 `id/state`，以及外来 worktree 的数量或粗归属；默认明确写“均未接管”
 - 只有遇到 `需用户决策`、权限阻塞、高风险确认、证据不足或真实责任切换时，才把它当作真正的停点或交接点

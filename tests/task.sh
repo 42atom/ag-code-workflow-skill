@@ -463,6 +463,82 @@ assert_contains "$task_stderr" "invalid state: rvw" "move should explain invalid
 
 rm -rf "$project_root"
 
+######## done tasks should reopen only through explicit reopen command
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10003.dne.runtime.reopen-done.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: closed tasks sometimes need same-line repair
+scope: prove done tasks reopen explicitly
+risk: low
+accept: reopen moves dne back to doi with reason
+memory: none
+code_version: old-code
+verify: old verify
+links: []
+---
+EOF
+
+run_task "$project_root" move 10003 doi
+assert_eq "$task_status" "1" "plain move should not reopen done tasks"
+assert_contains "$task_stderr" "illegal transition: dne -> doi" "move should keep dne to doi illegal"
+
+run_task "$project_root" reopen 10003 "same acceptance missed a smoke failure"
+assert_eq "$task_status" "0" "reopen should allow explicit same-line repair"
+assert_eq "$task_stdout" "$project_root/issues/tk10003.doi.runtime.reopen-done.p1.md" "reopen should move done task to doi in root"
+grep -q '^reopen_reason: same acceptance missed a smoke failure$' "$task_stdout" || fail "reopen should record reason"
+grep -q '^reopened_at:' "$task_stdout" || fail "reopen should stamp reopened_at"
+grep -q '^claimed_at:' "$task_stdout" || fail "reopen should claim reopened task"
+grep -q '^code_version: old-code$' "$task_stdout" || fail "reopen should preserve old code_version"
+
+rm -rf "$project_root"
+
+######## archived done tasks should return to issues root when reopened
+
+project_root="$(make_project)"
+archive_year="$(date +%Y)"
+mkdir -p "$project_root/issues/archive/${archive_year}"
+write_file "$project_root/issues/archive/${archive_year}/tk10008.dne.runtime.reopen-archive.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: archived done tasks may need same-line repair
+scope: prove reopen returns archived done docs to root
+risk: low
+accept: archived done task reopens into root doi
+memory: none
+code_version: old-code
+verify: old verify
+links: []
+---
+EOF
+
+run_task "$project_root" reopen tk10008 "late user acceptance failed"
+assert_eq "$task_status" "0" "reopen should find archived done tasks"
+assert_eq "$task_stdout" "$project_root/issues/tk10008.doi.runtime.reopen-archive.p1.md" "archived reopen should return to issues root"
+[[ ! -f "$project_root/issues/archive/${archive_year}/tk10008.dne.runtime.reopen-archive.p1.md" ]] || fail "reopen should remove archived copy"
+
+write_file "$project_root/issues/tk10009.tdo.runtime.not-done.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: only done issues can reopen
+scope: reject reopen from live states
+risk: low
+accept: reopen rejects tdo
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" reopen tk10009 "not closed yet"
+assert_eq "$task_status" "1" "reopen should reject non-dne states"
+assert_contains "$task_stderr" "reopen requires dne state: tdo" "reopen should explain state gate"
+
+rm -rf "$project_root"
+
 ######## legacy rvw tasks should be movable out for migration
 
 project_root="$(make_project)"

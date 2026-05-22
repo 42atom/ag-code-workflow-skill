@@ -435,6 +435,7 @@ usage:
   task.sh find <id>
   task.sh show <task-id>
   task.sh move <issue-id> <state>
+  task.sh reopen <issue-id> <reason>
   task.sh archive <task-id>
   task.sh archive-done [--keep N]
   task.sh prune <task-id> <base-ref>
@@ -1191,6 +1192,34 @@ cmd_move() {
   echo "$new_file"
 }
 
+cmd_reopen() {
+  local root="$1"
+  local issue_id reason file old_state new_file claimed_by claimed_thread_id
+
+  assert_control_plane_checkout "$root" "reopen"
+  issue_id="$(normalize_issue_id "$2")"
+  reason="$3"
+  [[ -n "$reason" ]] || die "reopen reason is required"
+
+  file="$(find_issue_file_anywhere "$root" "$issue_id")"
+  old_state="$(task_state_from_file "$file")"
+  [[ "$old_state" == "dne" ]] || die "reopen requires dne state: ${old_state}"
+
+  new_file="$root/issues/$(task_basename_with_state "$file" "doi")"
+  [[ ! -e "$new_file" ]] || die "reopen target already exists: ${new_file}"
+
+  mv "$file" "$new_file"
+  upsert_frontmatter_scalar "$new_file" "reopened_at" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  upsert_frontmatter_scalar "$new_file" "reopen_reason" "$reason"
+  upsert_frontmatter_scalar "$new_file" "claimed_at" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  claimed_by="$(resolve_claimed_by "$new_file")"
+  upsert_frontmatter_scalar "$new_file" "claimed_by" "$claimed_by"
+  if claimed_thread_id="$(resolve_claimed_thread_id)"; then
+    upsert_frontmatter_scalar "$new_file" "claimed_thread_id" "$claimed_thread_id"
+  fi
+  echo "$new_file"
+}
+
 cmd_archive() {
   local root="$1"
   local task_id file state year archive_dir archived_file
@@ -1913,7 +1942,7 @@ cmd_check() {
 }
 
 main() {
-  local current_root control_root cmd
+  local current_root control_root cmd issue_id
 
   cmd="${1:-}"
 
@@ -1962,6 +1991,14 @@ main() {
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -eq 3 ]] || die "usage: task.sh move <issue-id> <state>"
       cmd_move "$control_root" "$2" "$3"
+      ;;
+    reopen)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -ge 3 ]] || die "usage: task.sh reopen <issue-id> <reason>"
+      issue_id="$2"
+      shift 2
+      cmd_reopen "$control_root" "$issue_id" "$*"
       ;;
     archive)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
