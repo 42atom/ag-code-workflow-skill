@@ -470,7 +470,7 @@ write_file "$project_root/issues/tk10003.dne.runtime.reopen-done.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-why: closed tasks sometimes need same-line repair
+why: reviewers may find same-line work after close
 scope: prove done tasks reopen explicitly
 risk: low
 accept: reopen moves dne back to doi with reason
@@ -485,10 +485,10 @@ run_task "$project_root" move 10003 doi
 assert_eq "$task_status" "1" "plain move should not reopen done tasks"
 assert_contains "$task_stderr" "illegal transition: dne -> doi" "move should keep dne to doi illegal"
 
-run_task "$project_root" reopen 10003 "same acceptance missed a smoke failure"
+run_task "$project_root" reopen 10003 "reviewer found same-task smoke failure"
 assert_eq "$task_status" "0" "reopen should allow explicit same-line repair"
 assert_eq "$task_stdout" "$project_root/issues/tk10003.doi.runtime.reopen-done.p1.md" "reopen should move done task to doi in root"
-grep -q '^reopen_reason: same acceptance missed a smoke failure$' "$task_stdout" || fail "reopen should record reason"
+grep -q '^reopen_reason: reviewer found same-task smoke failure$' "$task_stdout" || fail "reopen should record reason"
 grep -q '^reopened_at:' "$task_stdout" || fail "reopen should stamp reopened_at"
 grep -q '^claimed_at:' "$task_stdout" || fail "reopen should claim reopened task"
 grep -q '^code_version: old-code$' "$task_stdout" || fail "reopen should preserve old code_version"
