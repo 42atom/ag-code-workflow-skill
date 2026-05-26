@@ -661,17 +661,17 @@ assert_contains "$task_stderr" "duplicate or colliding issue ids detected" "chec
 
 rm -rf "$project_root"
 
-######## different issue kinds may reuse the same numeric id
+######## cross-kind numeric collisions should warn during migration
 
 project_root="$(make_project)"
 write_file "$project_root/issues/tk0001.tdo.runtime.same-number-task.p1.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-why: kind prefixes are separate id namespaces
-scope: allow tk and pl to share the same digits
+why: historical projects may already have cross-kind numeric collisions
+scope: warn on tk and pl using the same digits during migration
 risk: low
-accept: cross-kind numeric reuse passes check
+accept: cross-kind numeric reuse warns without blocking old truth
 memory: none
 links: []
 ---
@@ -680,17 +680,18 @@ write_file "$project_root/issues/pl0001.tdo.product.same-number-plan.md" <<'EOF'
 ---
 owner: user
 assignee: codex
-why: plans have their own id namespace
-scope: allow pl and tk to share the same digits
+why: historical plans may collide with task digits
+scope: keep old collisions visible while new ids move to a global namespace
 risk: low
-accept: cross-kind numeric reuse passes check
+accept: cross-kind numeric reuse emits a warning
 links: []
 ---
 EOF
 
 run_task "$project_root" check
-assert_eq "$task_status" "0" "check should accept same digits across different issue kinds"
-assert_eq "$task_stdout" "ok" "cross-kind numeric reuse should still print ok"
+assert_eq "$task_status" "0" "check should not fail historical cross-kind collisions yet"
+assert_eq "$task_stdout" "ok" "cross-kind warning should still allow check during migration"
+assert_contains "$task_stderr" "warning: cross-kind numeric id collision" "check should warn on cross-kind numeric collision"
 
 write_file "$project_root/issues/pl00001.tdo.product.plan-width-collision.md" <<'EOF'
 ---
@@ -1014,11 +1015,29 @@ grep -Fqx 'depends_on: []' "$task_stdout" || fail "new tk should include default
 
 run_task "$project_root" new pl product sample-plan
 assert_eq "$task_status" "0" "new pl should succeed in shared root checkout"
-assert_eq "$task_stdout" "$project_root/issues/pl0001.tdo.product.sample-plan.md" "new pl should allocate from the pl namespace"
+assert_eq "$task_stdout" "$project_root/issues/pl0002.tdo.product.sample-plan.md" "new pl should allocate from the global issue namespace"
 
 run_task "$project_root" new tk runtime second-task p2
 assert_eq "$task_status" "0" "new tk should ignore pl ids while allocating"
-assert_eq "$task_stdout" "$project_root/issues/tk0002.tdo.runtime.second-task.p2.md" "new tk should advance only the tk namespace"
+assert_eq "$task_stdout" "$project_root/issues/tk0003.tdo.runtime.second-task.p2.md" "new tk should keep advancing the global issue namespace"
+
+mkdir -p "$project_root/issues/archive/2026"
+write_file "$project_root/issues/archive/2026/tk0009.dne.runtime.archived-id-owner.p1.md" <<'EOF'
+---
+owner: user
+assignee: codex
+why: archived docs still reserve stable numeric ids
+scope: prove new allocation scans issues/archive
+risk: low
+accept: next id skips archived numbers
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" new rs product archive-aware-study p1
+assert_eq "$task_status" "0" "new should scan archived issue ids"
+assert_eq "$task_stdout" "$project_root/issues/rs0010.tdo.product.archive-aware-study.p1.md" "new should allocate after archived global max id"
 
 run_task "$project_root" new tk rvw reserved-board p1
 assert_eq "$task_status" "1" "new should reject rvw as a retired reserved board name"
@@ -1031,9 +1050,9 @@ assert_contains "$task_stderr" "rp is legacy" "new should point review creation 
 linked_root="$(make_linked_worktree "$project_root" "task/new-control-plane")"
 run_task "$linked_root" new rs runtime linked-attempt
 assert_eq "$task_status" "0" "new should route to the shared control plane from a linked worktree"
-assert_eq "$task_stdout" "$project_root/issues/rs0001.tdo.runtime.linked-attempt.md" "linked worktree new should still create truth on the control plane"
+assert_eq "$task_stdout" "$project_root/issues/rs0011.tdo.runtime.linked-attempt.md" "linked worktree new should still create truth on the control plane"
 [[ -f "$task_stdout" ]] || fail "linked worktree new should create the control-plane file"
-[[ ! -f "$linked_root/issues/rs0001.tdo.runtime.linked-attempt.md" ]] || fail "linked worktree new should not write the mirror truth path locally"
+[[ ! -f "$linked_root/issues/rs0011.tdo.runtime.linked-attempt.md" ]] || fail "linked worktree new should not write the mirror truth path locally"
 
 remove_linked_worktree "$project_root" "$linked_root"
 rm -rf "$project_root"

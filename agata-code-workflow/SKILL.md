@@ -357,7 +357,7 @@ Current commands:
 
 Use `task.sh` for legal rename flow, basic validation, archive moves, prune cleanup, done-buffer cleanup, and memory-gated close checks.
 For `task.sh new`, remember: `board` is the third filename slot, not the state slot. The helper assigns the initial state itself: new `pl` / `rs` / `rf` / `tk` docs start as `tdo`. For review exchanges, use `task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]`; do not allocate global review ids for new work. If omitted, review `result` defaults to `note`.
-`task.sh new` uses per-kind counters. `tk0001` and `pl0001` may coexist; `tk0001` and `tk00001` may not. Do not renumber old files to make sequences look tidy.
+`task.sh new` uses one global numeric namespace across `tk` / `pl` / `rs` / `rf`, including archived issues. Kind is type, not an id namespace. Historical cross-kind collisions may warn during migration, but new ids must avoid them.
 Read a review thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 For execution workpad steps, use `task.sh progress <task-id> <sNN-slug> [state]`. The helper writes `docs/progress/<task-id>.<sNN-slug>.<state>.md`; progress state only means step state, not parent issue state.
 `task.sh check` warns on stateful full-filename links by default. Set `AGATA_STRICT_STABLE_LINKS=1` to make them fail during migration cleanup.

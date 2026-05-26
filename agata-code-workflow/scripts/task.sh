@@ -677,14 +677,13 @@ next_doc_digits() {
   local root="$1"
   local kind="$2"
 
-  python3 - "$root" "$kind" <<'PY'
+  python3 - "$root" <<'PY'
 from pathlib import Path
 import re
 import sys
 
 root = Path(sys.argv[1])
-kind = sys.argv[2]
-pattern = re.compile(rf"^{re.escape(kind)}(\d{{4,5}})\.")
+pattern = re.compile(r"^(tk|pl|rs|rf)(\d{4,5})\.")
 max_num = 0
 width = 4
 
@@ -694,7 +693,7 @@ if base.exists():
         match = pattern.match(path.name)
         if not match:
             continue
-        digits = match.group(1)
+        digits = match.group(2)
         max_num = max(max_num, int(digits))
         width = max(width, len(digits))
 
@@ -1368,6 +1367,7 @@ pattern = re.compile(r"^(?P<kind>tk|pl|rs|rf)(?P<digits>\d{4,5})\.")
 
 exact_ids = {}
 bare_ids = {}
+global_digits = {}
 
 for path in sorted(root.rglob("*.md")):
     match = pattern.match(path.name)
@@ -1378,6 +1378,7 @@ for path in sorted(root.rglob("*.md")):
     issue_id = f"{kind}{digits}"
     exact_ids.setdefault(issue_id, []).append(str(path))
     bare_ids.setdefault((kind, int(digits)), set()).add(issue_id)
+    global_digits.setdefault(int(digits), set()).add(issue_id)
 
 problems = []
 for task_id, paths in sorted(exact_ids.items()):
@@ -1391,6 +1392,10 @@ for (kind, bare_num), issue_ids in sorted(bare_ids.items()):
 if problems:
     print("\n".join(problems))
     raise SystemExit(1)
+
+for bare_num, issue_ids in sorted(global_digits.items()):
+    if len(issue_ids) > 1:
+        print(f"warning: cross-kind numeric id collision: {bare_num:04d} -> " + ", ".join(sorted(issue_ids)), file=sys.stderr)
 PY
   )"; then
     echo "$duplicates" >&2
