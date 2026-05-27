@@ -41,6 +41,17 @@ Use this skill when work touches the file-based workflow itself:
 
 Do not invent a second state system. The filename state slot is the truth source.
 
+## State Glossary
+
+- `tdo` = todo / pending required work. It may be DAG-blocked by `depends_on`.
+- `doi` = doing / actively claimed work.
+- `dne` = done / closed. Never treat `dne` as pending, design, backlog, or planning.
+- `bkd` = blocked after work started; keep the frozen scene.
+- `cand` = withdrawn from the active required graph; deferred / cancelled / not-now. It is not candidate backlog.
+- `arvd` = archived / cold history.
+
+Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is closed evidence; old priority labels on `dne` issues do not create current backlog pressure.
+
 ## Core Rules
 
 1. `issues/` is the task truth source.
@@ -287,6 +298,7 @@ Coverage tables are read-only snapshots, not a second ledger.
 - If the table disagrees with `issues/`, discard and regenerate it; never "fix" reality by editing the table.
 - Use `dispatch/action`, not a separate `ready?` column. Suggested values: `closed`, `active`, `dispatchable`, `blocked`, `gap`, `evidence-only`.
 - `dne` / `arvd` rows are `closed`; do not mark them "not ready".
+- Do not report `dne` rows as backlog, pending, design-in-progress, or priority pressure.
 - Audit filing, raw review storage, and other process evidence are not plan clauses. Put them in `links` / `aidocs/agent-runs/` unless the workflow itself is the product change.
 
 ## Review Intake Router
