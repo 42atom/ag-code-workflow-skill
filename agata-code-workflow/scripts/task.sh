@@ -77,7 +77,7 @@ is_generic_claimant_label() {
   local raw="$1"
 
   case "$raw" in
-    ""|user|codex|claude|assistant)
+    ""|user|agent|assistant|worker|runtime|current-runtime)
       return 0
       ;;
   esac
@@ -756,7 +756,7 @@ write_new_issue_doc() {
       cat >"$file" <<EOF
 ---
 owner: user
-assignee: codex
+assignee: agent
 result: ${review_result}
 why: TODO
 scope: TODO
@@ -781,7 +781,7 @@ EOF
       cat >"$file" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO

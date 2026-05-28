@@ -1184,9 +1184,9 @@ def inject_template(template: str, payload: dict[str, Any]) -> str:
     data_text = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
     return (
         template
-        .replace("__AGATA_PROGRESS_DATA__", data_text)
-        .replace("__AGATA_PROJECT_NAME__", payload["project"]["name"])
-        .replace("__AGATA_GENERATED_AT__", payload["project"]["generated_display"])
+        .replace("__WORKFLOW_PROGRESS_DATA__", data_text)
+        .replace("__WORKFLOW_PROJECT_NAME__", payload["project"]["name"])
+        .replace("__WORKFLOW_GENERATED_AT__", payload["project"]["generated_display"])
     )
 
 
@@ -1217,12 +1217,12 @@ def maybe_open(html_path: Path, should_open: bool) -> bool:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Generate a dense static HTML snapshot for an Agata workflow project."
+        description="Generate a dense static HTML snapshot for a file-workflow project."
     )
     parser.add_argument("--project-root", help="Project root that contains issues/")
     parser.add_argument(
         "--out-dir",
-        help="Output directory. Defaults to <project>/aidocs/agata-workflow-status",
+        help="Output directory. Defaults to <project>/aidocs/workflow-status",
     )
     parser.add_argument("--template", help="Override the bundled HTML template")
     parser.add_argument("--no-open", action="store_true", help="Generate files without opening the browser")
@@ -1233,7 +1233,7 @@ def main() -> int:
     args = build_parser().parse_args()
     script_path = Path(__file__)
     project_root = find_project_root(Path(args.project_root) if args.project_root else Path.cwd())
-    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else project_root / "aidocs" / "agata-workflow-status"
+    out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else project_root / "aidocs" / "workflow-status"
 
     payload = build_dashboard(project_root)
     template = load_template(script_path, args.template)

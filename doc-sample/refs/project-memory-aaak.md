@@ -7,4 +7,4 @@
 决: 以文件名承载状态真相
 因: 避二套状态系统
 锚: tk0001
-源: tk0001|tk0001.rv001-r001-codex|operator-checklist-tk0001
+源: tk0001|tk0001.rv001-r001-reviewer|operator-checklist-tk0001

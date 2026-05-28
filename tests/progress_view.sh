@@ -47,14 +47,14 @@ assert_contains "$data_file" '"name": "doc-sample"'
 assert_contains "$data_file" '"doc_id": "tk0001"'
 assert_contains "$data_file" '"doc_id": "tk0001.s01-sample"'
 assert_contains "$data_file" '"preview_url"'
-assert_contains "$html_file" 'Agata Progress'
+assert_contains "$html_file" 'Workflow Progress'
 assert_contains "$html_file" '现状 Current'
 assert_contains "$html_file" '历史 History'
 assert_contains "$html_file" 'Search issues...'
 assert_contains "$html_file" 'Recent Activity'
 assert_contains "$html_file" 'Project Memory'
 assert_contains "$html_file" 'Archive Years'
-assert_contains "$html_file" 'agata-progress-data'
+assert_contains "$html_file" 'workflow-progress-data'
 assert_contains "$html_file" 'doc-sample'
 preview_file="$(find "$out_dir_real/md" -type f -name '*.html' | head -n 1)"
 assert_file "$preview_file"
@@ -72,14 +72,14 @@ mkdir -p "$project_root/issues" "$project_root/docs/reviews" "$project_root/refs
 write_file "$project_root/issues/tk10001.doi.runtime.viewer-test.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: validate the progress viewer
 scope: render one active task
 risk: low
 accept: html and json carry 5-digit ids
 memory: required
 links:
-    - docs/reviews/tk10001.rv001-r1-gemini.md
+    - docs/reviews/tk10001.rv001-r1-reviewer.md
     - tk10003
 ---
 
@@ -102,20 +102,20 @@ EOF
 write_file "$project_root/issues/pl10001.tdo.runtime.viewer-plan.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: same anchor should show derived relations
 scope: one plan doc
 risk: low
 accept: same anchor visible
 links:
-  - docs/reviews/pl10001.rv001-r1-codex.md
+  - docs/reviews/pl10001.rv001-r1-author.md
 ---
 EOF
 
 write_file "$project_root/issues/tk10003.tdo.runtime.viewer-dag-node.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: tdo can be DAG-blocked without becoming cand
 scope: render dependency readiness
 risk: low
@@ -127,7 +127,7 @@ links: []
 ---
 EOF
 
-write_file "$project_root/docs/reviews/tk10001.rv001-r1-gemini.md" <<'EOF'
+write_file "$project_root/docs/reviews/tk10001.rv001-r1-reviewer.md" <<'EOF'
 ---
 result: pass
 ---
@@ -135,7 +135,7 @@ result: pass
 # tk10001 rv001 r1
 EOF
 
-write_file "$project_root/docs/reviews/pl10001.rv001-r1-codex.md" <<'EOF'
+write_file "$project_root/docs/reviews/pl10001.rv001-r1-author.md" <<'EOF'
 # pl10001 rv001 r1
 EOF
 
@@ -171,7 +171,7 @@ EOF
 write_file "$project_root/issues/archive/2026/tk10002.arvd.runtime.viewer-archive.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: validate archive grouping
 scope: one archived task
 risk: low

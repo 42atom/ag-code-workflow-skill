@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>__AGATA_PROJECT_NAME__ | Agata Progress</title>
+    <title>__WORKFLOW_PROJECT_NAME__ | Workflow Progress</title>
     <style>
       :root {
         /* Colors - Linear Light Vibes */
@@ -448,11 +448,11 @@
     </style>
   </head>
   <body>
-    <script id="agata-progress-data" type="application/json">__AGATA_PROGRESS_DATA__</script>
+    <script id="workflow-progress-data" type="application/json">__WORKFLOW_PROGRESS_DATA__</script>
 
     <nav class="navbar">
       <div class="brand">
-        <div class="project-name">__AGATA_PROJECT_NAME__</div>
+        <div class="project-name">__WORKFLOW_PROJECT_NAME__</div>
         <div class="issue-id" id="project-root" style="opacity:0.6">/path/to/root</div>
       </div>
       <div class="main-menu">
@@ -480,11 +480,11 @@
     </main>
 
     <footer style="height: 24px; border-top: 1px solid var(--border-quiet); background: var(--bg-side); display: flex; align-items: center; padding: 0 16px; font-size: 10px; color: var(--text-quiet); flex-shrink: 0;">
-      Agata Workflow · <span id="generated-at" style="margin-left:4px;">__AGATA_GENERATED_AT__</span>
+      File Workflow · <span id="generated-at" style="margin-left:4px;">__WORKFLOW_GENERATED_AT__</span>
     </footer>
 
     <script>
-      const data = JSON.parse(document.getElementById("agata-progress-data").textContent);
+      const data = JSON.parse(document.getElementById("workflow-progress-data").textContent);
       let currentNav = 'current';
       let currentKind = 'all';
       let searchQuery = '';

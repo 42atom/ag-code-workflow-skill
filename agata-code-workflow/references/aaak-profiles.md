@@ -1,6 +1,6 @@
 # AAAK Workflow Profiles
 
-These are narrow AAAK profiles for `agata-code-workflow`.
+These are narrow AAAK profiles for this file workflow.
 
 Do not use the full RFC field set by default.
 Use the smallest profile that preserves task meaning.
@@ -56,16 +56,16 @@ Meaning:
 Example:
 
 ```text
-题: quick-render-priority
+题: priority-claim-order
 时: 2026-04-10
 态: doi
-项: quick 任务优先于 batch backlog
-因: 客户快速预览被饿死
-范: worker claim 顺序
-非: 不拆 worker|不改 renderer
-验: quick 优先 claim|batch 不被抢占
-依: tk0058
-源: commit 3dff5c2|docs/operator-checklist-tk0059.md
+项: urgent 任务优先于 batch backlog
+因: 用户快速预览被饿死
+范: agent claim 顺序
+非: 不拆 agent|不改 ui
+验: urgent 优先 claim|batch 不被抢占
+依: tk0001
+源: commit 3dff5c2|docs/operator-checklist-tk0002.md
 ```
 
 More compressed variant:
@@ -77,9 +77,9 @@ More compressed variant:
 项: quick 先于 batch backlog
 因: 快览久饿
 范: claim 次序
-非: 不拆 worker|不改 renderer
+非: 不拆 agent|不改 ui
 验: quick 先取|batch 不夺
-依: tk0058
+依: tk0001
 源: commit 3dff5c2
 ```
 
@@ -163,27 +163,27 @@ Meaning:
 Example:
 
 ```text
-题: tk0061
+题: tk0001
 时: 2026-04-11
 轮: r001
 决: 不通过
 阻: 跨午夜 batch 重复计数
 因: item归日 + batch总数混用
 验: 同一 batch 跨两天时不得重复放大 output_count
-源: commit 9297321|render_repo.py|runner.py
+源: commit 9297321|source-a.py|source-b.py
 ```
 
 More compressed variant:
 
 ```text
-题: tk0061
+题: tk0001
 时: 2026-04-11
 轮: r001
 决: 不过
 阻: 跨午夜复计
 因: item归日|batch总数混写
 验: 不得重放 output_count
-源: commit 9297321|render_repo.py|runner.py
+源: commit 9297321|source-a.py|source-b.py
 ```
 
 ## AAAK-MEM
@@ -207,7 +207,7 @@ Meaning:
 
 - `决`: what changed
 - `因`: why it changed
-- `锚`: stable task anchor such as `tk0061`
+- `锚`: stable task anchor such as `tk0001`
 - `链`: relation to earlier or later notes
 - `评`: present status or interpretation
 
@@ -216,12 +216,12 @@ Example:
 ```text
 题: workflow-review-model
 时: 2026-04-11
-锚: tk0061
+锚: tk0001
 决: review 文档改为 parent-first + rNNN
 因: re.re 命名链过深且不利于 grep
-链: follows=旧 docs/opus-feedback 流
+链: follows=legacy review notes
 评: 新增内容按新规，历史文档暂不批量迁移
-源: agata-code-workflow/references/workflow-rules.md
+源: workflow-rules.md
 ```
 
 More compressed variant:
@@ -229,10 +229,10 @@ More compressed variant:
 ```text
 题: 评审制式迁移
 时: 2026-04-11
-锚: tk0061
+锚: tk0001
 决: review 改 parent-first+rNNN
 因: re.re 过深|grep 不利
-链: follows=旧 docs/opus-feedback 流
+链: follows=legacy review notes
 评: 新文从新|旧档暂存
 源: workflow-rules.md
 ```

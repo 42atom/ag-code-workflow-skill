@@ -1,6 +1,6 @@
 # agata-code-workflow
 
-Agata-style file workflow skill for local Git projects.
+File workflow skill for local Git projects.
 
 Use it when you want a lightweight file-based workflow instead of a separate issue system.
 
@@ -76,9 +76,9 @@ Common commands:
 
 ```bash
 ./agata-code-workflow/scripts/task.sh ls [state]
-./agata-code-workflow/scripts/task.sh review tk10061 rv001 r001-gemini
+./agata-code-workflow/scripts/task.sh review tk10061 rv001 r001-review-runtime
 ./agata-code-workflow/scripts/task.sh progress tk10061 s01-repro
-./agata-code-workflow/scripts/task.sh find tk10061.rv001-r001-gemini
+./agata-code-workflow/scripts/task.sh find tk10061.rv001-r001-review-runtime
 ./agata-code-workflow/scripts/task.sh find tk10061.s01-repro
 ./agata-code-workflow/scripts/task.sh show 10061
 ./agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate p1
@@ -94,12 +94,12 @@ Common commands:
 
 For `task.sh new`, the contract is literal: `<kind> <board> <slug> [prio]`.
 `board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
-Issue ids are allocated per kind. `tk0001` and `pl0001` may coexist; `tk0001` and `tk00001` may not. Existing old numbering is not migrated just to make sequences look tidy.
+Issue ids are allocated from one global numeric namespace across `tk` / `pl` / `rs` / `rf`. Kind is type, not an id namespace. Existing old numbering is not migrated just to make sequences look tidy.
 Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 `task.sh new` uses an atomic `.agata-new-id.lock` directory while allocating ids. If it reports busy, rerun after the other allocator finishes.
 Execution workpad steps use `task.sh progress <task-id> <sNN-slug> [state]` and land under `docs/progress/`. Their state is step state only; parent task closure remains in `issues/`.
 For state-slot changes, use `task.sh move` first. Manual rename is only a helper-gap fallback for a clearly legal same-file state change; run `task.sh check` immediately and report the helper gap.
-Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r001-codex`, or `tk0001.s01-repro`; never link stateful full filenames such as `tk0001.tdo.*.md`.
+Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r001-reviewer`, or `tk0001.s01-repro`; never link stateful full filenames such as `tk0001.tdo.*.md`.
 During migration, `task.sh check` warns on old stateful links by default. Use `AGATA_STRICT_STABLE_LINKS=1 task.sh check` to turn the warning into a failure.
 `docs/plan/` is legacy-only. New plans go to `issues/pl...`; still-relevant old plans should be migrated there, and the rest archived under `docs/archive/legacy-plan/`.
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
@@ -125,7 +125,7 @@ On the same task line, control-plane writes are serial by default. Do not pipeli
 Before merge, `dne`, or `prune`, re-check the worktree against the target `base-ref`; do not keep stacking changes on an obviously stale execution plane.
 Parallel task worktrees are blind by default: do not consume another task worktree's unlanded code, artifacts, local services, or database state through side channels.
 Stale `doi` claims trigger a takeover check, not automatic rollback; inspect the worktree, run `task.sh orphan-scan <base-ref> <task-id>`, then hand off or move state explicitly on the control plane.
-When an issue moves to `doi`, `task.sh move` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. For multiple Codex threads, `claimed_thread_id` is the useful disambiguator.
+When an issue moves to `doi`, `task.sh move` stamps `claimed_at`, `claimed_by`, and, when the runtime exposes it, `claimed_thread_id`. When several sessions share the same runtime label, `claimed_thread_id` is the useful disambiguator.
 
 Use `task.sh prune <task-id> <base-ref>` when a dedicated task worktree is ready to die.
 It re-runs `check`, re-runs `orphan-scan`, refuses `doi` / `bkd`, and only removes one linked worktree whose execution diff is already drained against the chosen base ref.
@@ -136,8 +136,8 @@ If you only want inspection or recovery before cleanup, run `task.sh orphan-scan
 
 Run `progress_view.py` to generate:
 
-- `aidocs/agata-workflow-status/progress-data.json`
-- `aidocs/agata-workflow-status/progress-view.html`
+- `aidocs/workflow-status/progress-data.json`
+- `aidocs/workflow-status/progress-view.html`
 
 The HTML is self-contained and opens directly in a browser.
 
@@ -152,9 +152,9 @@ Use `docs/progress/` when a task is too long for one clean handoff message.
 Example:
 
 ```text
-docs/progress/tk0615.s01-repro.dne.md
-docs/progress/tk0615.s02-host-io.dne.md
-docs/progress/tk0615.s03-electron-bridge.doi.md
+docs/progress/tk0001.s01-repro.dne.md
+docs/progress/tk0001.s02-fix.dne.md
+docs/progress/tk0001.s03-verify.doi.md
 ```
 
 Rules:
@@ -163,7 +163,7 @@ Rules:
 - one parent `tk` may have at most one `doi` progress step
 - closed parent tasks cannot leave open progress steps
 - progress is workpad evidence, not closure authority
-- parent `tk.links` may use stable anchors like `tk0615.s01-repro`
+- parent `tk.links` may use stable anchors like `tk0001.s01-repro`
 
 Close-out lives in the parent `tk` as a Completion Bar: progress drained, acceptance met, validation done, review feedback swept, implementation on mainline, `task.sh check` pass, worktree ready for cleanup. `accept` is the task contract; progress is evidence; Completion Bar is the close gate.
 
@@ -203,13 +203,13 @@ Minimal entry:
 ## ob20260517-001 local-storage-read-helper-dup
 
 时: 2026-05-17
-源: tk1026
-域: frontend
-位: ComposerBar / MessageActionBar
+源: tk0001
+域: ui
+位: module-a / module-b
 观: localStorage read helpers are duplicated.
 判: not worth a task until reuse grows.
 触: third copy appears or defaults diverge again.
-动: promote to shared renderer helper task.
+动: promote to shared ui helper task.
 态: watching
 ```
 
@@ -228,20 +228,20 @@ Project shape:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
+| ana | sid019dd9af | A | current-runtime | ui | thread:019dd9af... | continue tk0001 |
 
 ## Pool
 
 - ana
 - ben
 - cal
-- neo
+- nia
 ```
 
 Rules:
 
 - Ask users only about `name`; keep `sid` for files, review authors, and commit trailers.
-- `engine` must be the current runtime, such as `codex`, `claude`, or `gemini`; do not copy example values.
+- `engine` must be the current runtime, such as `current-runtime`, `alternate-runtime`, or `review-runtime`; do not copy example values.
 - Write `refs/agent-names.md` only after user confirmation.
 - Non-interactive/background work uses only `sid`.
 - Derive `sid` from thread id when available; otherwise use timestamp plus short random or local unique suffix.

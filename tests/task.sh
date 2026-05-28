@@ -130,7 +130,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10001.dne.runtime.archive-me.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: archive lookup should keep history reachable
 scope: archive one task
 risk: low
@@ -159,7 +159,7 @@ for digits in 10001 10002 10003 10004 10005; do
   write_file "$project_root/issues/tk${digits}.dne.runtime.done-${digits}.p1.md" <<EOF
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: done buffer fixture ${digits}
 scope: prove archive-done keeps only recent done docs
 risk: low
@@ -172,7 +172,7 @@ done
 write_file "$project_root/issues/pl10006.dne.product.done-plan.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: done plan also belongs to the done buffer
 scope: prove archive-done applies to issue docs, not only tk
 risk: low
@@ -183,7 +183,7 @@ EOF
 write_file "$project_root/issues/tk10007.tdo.runtime.live-task.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: live tasks must stay in root
 scope: prove archive-done ignores active states
 risk: low
@@ -218,7 +218,7 @@ for number in $(seq 1 33); do
   write_file "$project_root/issues/tk${digits}.dne.runtime.default-buffer-${digits}.p1.md" <<EOF
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: default done buffer fixture ${digits}
 scope: prove archive-done default keeps thirty-two docs
 risk: low
@@ -244,7 +244,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10011.arvd.runtime.archive-residue.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: root-level arvd files should not survive after archive
 scope: detect half-migrated archive residue
 risk: low
@@ -275,7 +275,7 @@ EOF
 write_file "$project_root/issues/tk10030.tdo.runtime.clean-active-target.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: active issues remain the banned-term target
 scope: prove docs plan is legacy-only
 risk: low
@@ -292,7 +292,7 @@ assert_eq "$task_stdout" "ok" "legacy docs/plan should not trip active checks"
 write_file "$project_root/issues/tk10031.tdo.runtime.banned-active-target.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: forbidden-shim in active issue should still fail
 scope: prove active issue remains checked
 risk: low
@@ -314,7 +314,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10040.tdo.runtime.progress-parent.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: progress files should hang off a parent task
 scope: validate docs/progress helper
 risk: low
@@ -360,7 +360,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10041.dne.runtime.closed-parent.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: closed parent cannot keep open progress
 scope: validate progress drain rule
 risk: low
@@ -401,7 +401,7 @@ write_file "$project_root/aidocs/design/pl9999.tdo.visual.reference.md" <<'EOF'
 
 This is a raw design note, not a workflow plan.
 EOF
-write_file "$project_root/aidocs/agent-runs/tk9999.impl-codex-20260430T1030Z.md" <<'EOF'
+write_file "$project_root/aidocs/agent-runs/tk9999.impl-current-runtime-20260430T1030Z.md" <<'EOF'
 # Failed Sub-Agent Run
 
 This mentions tk9999.rvw and forbidden-shim, but remains low-trust staging.
@@ -423,7 +423,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10002.rvw.runtime.retired-state.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: rvw is retired as a task state
 scope: reject retired state residue
 risk: low
@@ -445,14 +445,14 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk0003.doi.runtime.no-rvw-target.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: rvw must no longer be a legal target state
 scope: reject new moves into rvw
 risk: low
 accept: move rvw fails
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
-claimed_by: codex
+claimed_by: current-runtime
 links: []
 ---
 EOF
@@ -469,7 +469,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10003.dne.runtime.reopen-done.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: reviewers may find same-line work after close
 scope: prove done tasks reopen explicitly
 risk: low
@@ -503,7 +503,7 @@ mkdir -p "$project_root/issues/archive/${archive_year}"
 write_file "$project_root/issues/archive/${archive_year}/tk10008.dne.runtime.reopen-archive.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: archived done tasks may need same-line repair
 scope: prove reopen returns archived done docs to root
 risk: low
@@ -523,7 +523,7 @@ assert_eq "$task_stdout" "$project_root/issues/tk10008.doi.runtime.reopen-archiv
 write_file "$project_root/issues/tk10009.tdo.runtime.not-done.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: only done issues can reopen
 scope: reject reopen from live states
 risk: low
@@ -545,7 +545,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10006.rvw.runtime.legacy-review.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: old projects need a direct escape from retired rvw
 scope: migrate old rvw tasks back to doi
 risk: low
@@ -567,7 +567,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/pl10006.rvw.model.legacy-plan-review.p2.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: old projects may have non-task docs stranded in retired rvw
 scope: migrate old rvw plans to a legal terminal state
 risk: low
@@ -589,7 +589,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10004.dne.runtime.memory-anchor.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: memory gate should require an explicit anchor
 scope: close task with memory gate
 risk: low
@@ -633,7 +633,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk0001.tdo.runtime.numeric-collision-four.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: bare numeric ids must stay unique
 scope: detect 4-digit and 5-digit collisions
 risk: low
@@ -645,7 +645,7 @@ EOF
 write_file "$project_root/issues/tk00001.tdo.runtime.numeric-collision-five.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: bare numeric ids must stay unique
 scope: detect 4-digit and 5-digit collisions
 risk: low
@@ -667,7 +667,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk0001.tdo.runtime.same-number-task.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: historical projects may already have cross-kind numeric collisions
 scope: warn on tk and pl using the same digits during migration
 risk: low
@@ -679,7 +679,7 @@ EOF
 write_file "$project_root/issues/pl0001.tdo.product.same-number-plan.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: historical plans may collide with task digits
 scope: keep old collisions visible while new ids move to a global namespace
 risk: low
@@ -696,7 +696,7 @@ assert_contains "$task_stderr" "warning: cross-kind numeric id collision" "check
 write_file "$project_root/issues/pl00001.tdo.product.plan-width-collision.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: same-kind 4-digit and 5-digit ids still collide
 scope: catch pl0001 versus pl00001
 risk: low
@@ -717,7 +717,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10005.tdo.runtime.five-digit-pass.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: 5-digit ids should work across task and review lookup
 scope: prove 5-digit task and review ids
 risk: low
@@ -728,7 +728,7 @@ links:
   - rp10005
 ---
 EOF
-write_file "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-codex.md" <<'EOF'
+write_file "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-current-runtime.md" <<'EOF'
 # tk10005 review-r1
 EOF
 
@@ -742,7 +742,7 @@ assert_eq "$task_stdout" "$project_root/issues/tk10005.tdo.runtime.five-digit-pa
 
 run_task "$project_root" find rp10005
 assert_eq "$task_status" "0" "find should locate 5-digit review ids"
-assert_eq "$task_stdout" "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-codex.md" "find should resolve 5-digit review ids"
+assert_eq "$task_stdout" "$project_root/docs/reviews/rp10005.dne.runtime.review-r1-current-runtime.md" "find should resolve 5-digit review ids"
 
 rm -rf "$project_root"
 
@@ -752,7 +752,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10018.tdo.runtime.legacy-rp-review-anchor.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: legacy repos may still carry rp review docs under issues
 scope: keep stable rp anchors valid during migration
 risk: low
@@ -762,7 +762,7 @@ links:
   - rp10018
 ---
 EOF
-write_file "$project_root/issues/rp10018.dne.runtime.review-r1-codex.md" <<'EOF'
+write_file "$project_root/issues/rp10018.dne.runtime.review-r1-current-runtime.md" <<'EOF'
 # legacy rp review
 EOF
 
@@ -778,7 +778,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10016.tdo.runtime.stateful-link-source.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: links must use stable id anchors
 scope: reject stateful filenames in links
 risk: low
@@ -791,7 +791,7 @@ EOF
 write_file "$project_root/issues/tk10017.tdo.runtime.stateful-link-target.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: stateful link target fixture
 scope: provide a file that should not be linked by full name
 risk: low
@@ -813,22 +813,22 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10009.doi.runtime.issue-scoped-review.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: review messages should encode parent issue and thread in the filename
 scope: create one issue-scoped rv message
 risk: low
-accept: review command creates docs/reviews/tk10009.rv001-r001-gemini.md
+accept: review command creates docs/reviews/tk10009.rv001-r001-review-runtime.md
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
-claimed_by: codex
+claimed_by: current-runtime
 links:
-  - docs/reviews/tk10009.rv001-r001-gemini.md
+  - docs/reviews/tk10009.rv001-r001-review-runtime.md
 ---
 EOF
 
-run_task "$project_root" review tk10009 rv001 r001-gemini
+run_task "$project_root" review tk10009 rv001 r001-review-runtime
 assert_eq "$task_status" "0" "review command should create issue-scoped rv docs"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-gemini.md" "review command should encode task, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md" "review command should encode task, thread, round, and author"
 [[ -f "$task_stdout" ]] || fail "review command should create the rv file"
 ! grep -q '^reviewer:' "$task_stdout" || fail "review docs should not include static reviewer"
 grep -q '^result: note$' "$task_stdout" || fail "review docs should default to result note"
@@ -837,18 +837,18 @@ run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid issue-scoped rv docs"
 assert_eq "$task_stdout" "ok" "valid rv check should print ok"
 
-run_task "$project_root" find tk10009.rv001-r001-gemini
+run_task "$project_root" find tk10009.rv001-r001-review-runtime
 assert_eq "$task_status" "0" "find should locate issue-scoped rv docs by full review id"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-gemini.md" "find should resolve full issue-scoped rv ids"
-printf 'r001-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r001-gemini.md"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md" "find should resolve full issue-scoped rv ids"
+printf 'r001-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md"
 
-run_task "$project_root" review tk10009 rv001 r002-codex
+run_task "$project_root" review tk10009 rv001 r002-current-runtime
 assert_eq "$task_status" "0" "review command should create the next message in the same thread"
-printf 'r002-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r002-codex.md"
+printf 'r002-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r002-current-runtime.md"
 
-run_task "$project_root" review tk10009 rv001 r003-opus pass
+run_task "$project_root" review tk10009 rv001 r003-reviewer pass
 assert_eq "$task_status" "0" "review command should accept explicit review result"
-grep -q '^result: pass$' "$project_root/docs/reviews/tk10009.rv001-r003-opus.md" || fail "review command should write explicit review result"
+grep -q '^result: pass$' "$project_root/docs/reviews/tk10009.rv001-r003-reviewer.md" || fail "review command should write explicit review result"
 
 thread_view="$(cat "$project_root"/docs/reviews/tk10009.rv001-r*.md)"
 assert_contains "$thread_view" "r001-marker" "plain cat should read r001"
@@ -858,33 +858,33 @@ assert_contains "$thread_view" "r002-marker" "plain cat should read r002"
 write_file "$project_root/issues/pl10010.doi.runtime.plan-review.p2.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: plans also need pre-implementation review evidence
 scope: create one plan-scoped rv message
 risk: low
-accept: review command creates docs/reviews/pl10010.rv001-r001-opus.md
+accept: review command creates docs/reviews/pl10010.rv001-r001-reviewer.md
 memory: none
 links:
-  - docs/reviews/pl10010.rv001-r001-opus.md
+  - docs/reviews/pl10010.rv001-r001-reviewer.md
 ---
 EOF
 
-run_task "$project_root" review pl10010 rv001 r001-opus
+run_task "$project_root" review pl10010 rv001 r001-reviewer
 assert_eq "$task_status" "0" "review command should support non-task issue parents"
-assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r001-opus.md" "review command should encode plan parent, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r001-reviewer.md" "review command should encode plan parent, thread, round, and author"
 
 run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid plan-scoped rv docs"
 
-run_task "$project_root" review tk10009 rv1 r2-gpt
+run_task "$project_root" review tk10009 rv1 r2-author
 assert_eq "$task_status" "1" "review command should reject non-padded thread ids"
 assert_contains "$task_stderr" "review thread must look like rv001" "review should explain thread shape"
 
-run_task "$project_root" review tk10009 rv001 r2-gpt
+run_task "$project_root" review tk10009 rv001 r2-author
 assert_eq "$task_status" "1" "review command should reject non-padded round ids"
 assert_contains "$task_stderr" "review round must look like r001-author" "review should explain round shape"
 
-run_task "$project_root" review tk10009 rv001 r004-gpt maybe
+run_task "$project_root" review tk10009 rv001 r004-author maybe
 assert_eq "$task_status" "1" "review command should reject invalid result"
 assert_contains "$task_stderr" "review result must be block, pass, or note" "review should explain result shape"
 
@@ -893,10 +893,10 @@ rm -rf "$project_root"
 ######## issue-scoped rv docs should require an existing parent issue
 
 project_root="$(make_project)"
-write_file "$project_root/docs/reviews/tk10010.rv001-r001-gemini.md" <<'EOF'
+write_file "$project_root/docs/reviews/tk10010.rv001-r001-review-runtime.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: orphan review docs should fail loudly
 scope: reject rv docs without parent issue
 risk: low
@@ -913,8 +913,8 @@ rm -rf "$project_root"
 ######## comprehensive audits without one parent issue belong in aidocs
 
 project_root="$(make_project)"
-write_file "$project_root/docs/reviews/codex-recent-10h.rv001-r001-antigravity.md" <<'EOF'
-# Codex Recent 10h Antigravity Review
+write_file "$project_root/docs/reviews/recent-audit.rv001-r001-reviewer.md" <<'EOF'
+# Recent Audit Review
 
 This is a cross-task comprehensive audit, not one issue-scoped review exchange.
 EOF
@@ -927,8 +927,8 @@ rm -rf "$project_root"
 
 project_root="$(make_project)"
 mkdir -p "$project_root/aidocs/agent-runs"
-write_file "$project_root/aidocs/agent-runs/codex-recent-10h.review-antigravity-20260501.md" <<'EOF'
-# Codex Recent 10h Antigravity Review
+write_file "$project_root/aidocs/agent-runs/recent-audit.review-reviewer-20260501.md" <<'EOF'
+# Recent Audit Review
 
 This is raw comprehensive audit material. Triage may later reject, attach, or split findings.
 EOF
@@ -945,7 +945,7 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10013.dne.runtime.completed-prereq.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: completed prerequisite
 scope: dependency target
 risk: low
@@ -957,7 +957,7 @@ EOF
 write_file "$project_root/issues/tk10014.tdo.runtime.waiting-on-prereq.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: required future work can wait in tdo
 scope: dependency source
 risk: low
@@ -976,7 +976,7 @@ assert_eq "$task_stdout" "ok" "valid dependency check should print ok"
 write_file "$project_root/issues/tk10015.tdo.runtime.missing-prereq.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: missing DAG target should fail loudly
 scope: dependency source
 risk: low
@@ -1025,7 +1025,7 @@ mkdir -p "$project_root/issues/archive/2026"
 write_file "$project_root/issues/archive/2026/tk0009.dne.runtime.archived-id-owner.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: archived docs still reserve stable numeric ids
 scope: prove new allocation scans issues/archive
 risk: low
@@ -1063,7 +1063,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10008.doi.runtime.truth-edit-drift.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: linked worktrees must not edit truth files directly
 scope: fail check on local truth drift
 risk: low
@@ -1103,14 +1103,14 @@ project_root="$(make_project)"
 write_file "$project_root/issues/tk10013.doi.runtime.stale-claim.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: stale doi claims should surface during check
 scope: warn on zombie lock candidates
 risk: low
 accept: stale doi shows a warning
 memory: none
 claimed_at: 2000-01-01T00:00:00Z
-claimed_by: codex
+claimed_by: current-runtime
 claimed_thread_id: thread-stale
 links: []
 ---
@@ -1118,7 +1118,7 @@ EOF
 write_file "$project_root/issues/tk10014.doi.runtime.missing-claim.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: missing claim timestamps should also surface
 scope: warn on malformed doi metadata
 risk: low
@@ -1130,14 +1130,14 @@ EOF
 write_file "$project_root/issues/tk10015.doi.runtime.generic-claimant-without-thread.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: generic engine claimants need a thread marker
 scope: warn when same-engine concurrency cannot be disambiguated
 risk: low
 accept: missing claimed_thread_id shows a warning
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
-claimed_by: codex
+claimed_by: current-runtime
 links: []
 ---
 EOF
@@ -1148,7 +1148,7 @@ assert_eq "$task_stdout" "ok" "stale doi warnings should still finish with ok"
 assert_contains "$task_stderr" "warning: stale doi task: tk10013" "check should warn on stale doi"
 assert_contains "$task_stderr" "warning: doi task missing claimed_at: tk10014" "check should warn on missing claim timestamp"
 assert_contains "$task_stderr" "warning: doi task missing claimed_by: tk10014" "check should warn on missing claim owner"
-assert_contains "$task_stderr" "warning: doi task generic claimant needs claimed_thread_id: tk10015 -> codex" "check should warn when generic claimants lack a thread id"
+assert_contains "$task_stderr" "warning: doi task generic claimant needs claimed_thread_id: tk10015 -> current-runtime" "check should warn when generic claimants lack a thread id"
 
 rm -rf "$project_root"
 
@@ -1158,7 +1158,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10024.doi.runtime.control-plane-check-stale.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: linked check must not judge stale doi from an old mirror
 scope: semantic checks should read the control plane
 risk: low
@@ -1192,7 +1192,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10025.tdo.runtime.control-plane-check-duplicate-a.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: linked check must judge duplicate ids from the control plane
 scope: duplicate detection should not use stale mirror-only view
 risk: low
@@ -1210,7 +1210,7 @@ linked_root="$(make_linked_worktree "$project_root" "task/tk10025-check")"
 write_file "$project_root/issues/tk10025.doi.runtime.control-plane-check-duplicate-b.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: duplicate id exists only on the control plane branch history
 scope: make sure linked check still sees the collision
 risk: low
@@ -1234,7 +1234,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10007.tdo.runtime.control-plane-move.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: workflow state changes should route through the shared control plane
 scope: linked worktrees should not mutate their local truth mirror
 risk: low
@@ -1254,7 +1254,7 @@ CODEX_THREAD_ID="thread-tk10007" run_task "$linked_root" move 10007 doi
 assert_eq "$task_status" "0" "move should route to the shared control plane from a linked worktree"
 assert_eq "$task_stdout" "$project_root/issues/tk10007.doi.runtime.control-plane-move.p1.md" "linked worktree move should rename the control-plane task"
 grep -q "^claimed_at: " "$task_stdout" || fail "move to doi should stamp claimed_at"
-grep -q "^claimed_by: codex$" "$task_stdout" || fail "move to doi should stamp claimed_by"
+grep -q "^claimed_by: agent$" "$task_stdout" || fail "move to doi should stamp claimed_by"
 grep -q "^claimed_thread_id: thread-tk10007$" "$task_stdout" || fail "move to doi should stamp claimed_thread_id from runtime env"
 [[ -f "$linked_root/issues/tk10007.tdo.runtime.control-plane-move.p1.md" ]] || fail "linked worktree mirror should stay on its own branch copy"
 
@@ -1271,7 +1271,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10012.dne.runtime.control-plane-archive.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: archive should land on the shared control plane even when called from a linked worktree
 scope: route archive through the authoritative checkout
 risk: low
@@ -1302,7 +1302,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10020.doi.runtime.prune-live-claim.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: prune must not silently delete an active claim
 scope: block cleanup while doi lock is still held
 risk: low
@@ -1332,7 +1332,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10021.bkd.runtime.prune-frozen-worktree.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: blocked tasks may intentionally keep a frozen worktree
 scope: block prune on bkd state
 risk: low
@@ -1361,7 +1361,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10026.dne.runtime.prune-self-destruct-guard.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: prune should not remove the directory the current shell is standing in
 scope: block self-destructing prune calls from the target worktree
 risk: low
@@ -1397,7 +1397,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10022.dne.runtime.prune-landed-worktree.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: landed task worktrees should be removable from the control plane
 scope: delete linked worktree and its local branch after reconciliation
 risk: low
@@ -1444,7 +1444,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10023.dne.runtime.prune-unlanded-worktree.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: cleanup must stop if code still lives only in the task branch
 scope: block prune on outstanding execution diff
 risk: low
@@ -1488,7 +1488,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10058.tdo.runtime.stranded-worktree.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: orphan-scan should catch untracked truth in current worktree
 scope: detect stranded truth before cleanup
 risk: low
@@ -1510,7 +1510,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/tk10059.tdo.runtime.progress-truth.p1.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: docs/progress should not strand in worktrees
 scope: validate progress truth scan
 risk: low
@@ -1569,13 +1569,13 @@ write_file "$project_root/refs/agent-names.md" <<'EOF'
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | codex | frontend | thread:019dd9af | continue tk10060 |
+| ana | sid019dd9af | A | current-runtime | ui | thread:019dd9af | continue tk10060 |
 
 ## Pool
 
 - ana
 - ben
-- neo
+- nia
 EOF
 
 run_task "$project_root" orphan-scan main
@@ -1594,7 +1594,7 @@ project_root="$(make_git_project)"
 write_file "$project_root/issues/pl10042.tdo.runtime.stranded-plan.md" <<'EOF'
 ---
 owner: user
-assignee: codex
+assignee: agent
 why: orphan-scan should catch branch-only plan truth
 scope: detect truth stranded in another branch
 risk: low

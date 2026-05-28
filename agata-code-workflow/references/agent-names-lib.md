@@ -21,7 +21,7 @@ Default to `ascii` unless the user asks for Chinese names.
 - kai
 - leo
 - max
-- neo
+- nia
 - rio
 - sam
 - tom

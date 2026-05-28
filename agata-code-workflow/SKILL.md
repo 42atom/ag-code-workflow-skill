@@ -1,6 +1,6 @@
 ---
 name: agata-code-workflow
-description: Create, update, review, or validate Agata file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs.
+description: Create, update, review, or validate file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs.
 ---
 
 # Agata Code Workflow
@@ -38,7 +38,7 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 4. Backlog is `tk.tdo`; do not add `bl` or use `cand` for dependency waiting.
 5. Future required work with unmet prerequisites stays `tdo` and uses `depends_on`.
 6. `tk` / `pl` / `rs` / `rf` share one global numeric namespace, including archived issues. Kind is type, not id namespace.
-7. Links use stable anchors such as `tk0001`, `tk0001.rv001-r001-codex`, or `tk0001.s01-repro`; never link stateful full filenames.
+7. Links use stable anchors such as `tk0001`, `tk0001.rv001-r001-reviewer`, or `tk0001.s01-repro`; never link stateful full filenames.
 8. Review is evidence, not a task state. Do not restore `rvw`.
 9. New review records use `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` and frontmatter `result: block|pass|note`.
 10. Progress files use `docs/progress/<tk-id>.sNN-<slug>.<state>.md`; progress never decides parent closure.
@@ -96,7 +96,7 @@ Issue frontmatter stays small:
 
 ```yaml
 owner: user
-assignee: codex
+assignee: agent
 recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO
@@ -138,7 +138,7 @@ Agent names:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
+| ana | sid019dd9af | A | current-runtime | ui | thread:019dd9af... | continue tk0001 |
 ```
 
 ## Coverage Tables

@@ -119,7 +119,7 @@ state：
 - 子代理原始输出、失败记录、半成品回传，先放 `aidocs/agent-runs/`；只有主控 agent 裁决后，才提升到 `tk` / `rv` / memory / mainline
 - 综合审计、最近 N 小时审计、全仓审计、跨任务 review、没有唯一父 issue 的审阅，先放 `aidocs/agent-runs/`；它们是低信任审计材料，不是正式 review
 - 综合审计经主控 triage 后，每条 finding 只能三种去向：`reject` 留在原始材料，`attach` 到已有父 issue 的 `rv`，或 `split` 成一个具体 `tk`
-- `docs/reviews/` 只接收有且只有一个父 issue 的 exchange message；`codex-recent-10h.rv001-r001-antigravity.md` 这类无父 issue 文件非法
+- `docs/reviews/` 只接收有且只有一个父 issue 的 exchange message；`recent-audit.rv001-r001-reviewer.md` 这类无父 issue 文件非法
 - 长任务执行过程、阶段性验证、接手信息，落 `docs/progress/`；不要让它们只留在聊天转发里
 - 批量从 `pl` 拆 `tk` 前，必须先输出只读覆盖表：`计划条款 -> 承接 tk -> 状态 -> dispatch/action -> 缺口`
 - 计划条款没有承接 `tk` 的，标为缺口；不得靠聊天记忆派实现
@@ -131,7 +131,7 @@ state：
 - 新建 `tk` / `pl` / `rs` / `rf` / `rv` 前，先查当前 `issues/`、`docs/reviews/`、相关 radar 和相关记忆，确认不是同 scope 重复立项
 - 去重先看 live root 与 memory；只有 direct anchor、回归考古、用户问历史、或根目录加 memory 仍无法判定时，才打开 archive 正文
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
-- `task.sh new` 按 kind 分别发号：`tk` 只看 `tk*`，`pl` 只看 `pl*`，`rs` 只看 `rs*`，`rf` 只看 `rf*`
+- `task.sh new` 按 `tk` / `pl` / `rs` / `rf` 共享数字命名空间发号；kind 是类型，不是编号命名空间
 - `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
 - 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现
 
@@ -139,7 +139,7 @@ state：
 
 - issue 引用用 `tk0001` / `pl0001` / `rs0001` / `rf0001`
 - legacy review 引用用 `rp0001`
-- issue-scoped review 引用用 `tk0001.rv001-r001-codex`
+- issue-scoped review 引用用 `tk0001.rv001-r001-reviewer`
 - progress 引用用 `tk0001.s01-repro`
 - 禁止在 `links` 写 `tk0001.tdo.*.md`、`tk0001.doi.*.md`、`rp0001.dne.*.md` 或 `tk0001.s01-repro.dne.md`
 - 文件名是瞬时投影；id 才是永久锚点
@@ -150,7 +150,7 @@ state：
 
 ```yaml
 owner: user
-assignee: codex
+assignee: agent
 recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO
@@ -173,11 +173,11 @@ DAG 依赖写法：
 
 ```yaml
 depends_on:
-  - tk0740
-  - pl0701
+  - tk0001
+  - pl0002
 ready_when:
-  - tk0740.dne
-  - pl0701.dne
+  - tk0001.dne
+  - pl0002.dne
 ```
 
 规则：
@@ -194,9 +194,9 @@ ready_when:
 命名：
 
 ```text
-docs/progress/tk0615.s01-repro.dne.md
-docs/progress/tk0615.s02-host-io.dne.md
-docs/progress/tk0615.s03-electron-bridge.doi.md
+docs/progress/tk0001.s01-repro.dne.md
+docs/progress/tk0001.s02-fix.dne.md
+docs/progress/tk0001.s03-verify.doi.md
 ```
 
 格式：
@@ -219,12 +219,12 @@ docs/progress/tk0615.s03-electron-bridge.doi.md
 - 同一 `tk` 最多一个 progress 为 `doi`
 - 父 `tk` 进入 `dne` / `cand` / `arvd` 前，所有 progress 必须为 `dne`
 - progress 文件必须放在共享控制面，不能只留在 task worktree
-- progress 可以被父 `tk.links` 以稳定锚 `tk0615.s01-repro` 引用，但是否关单仍看父 `tk`
+- progress 可以被父 `tk.links` 以稳定锚 `tk0001.s01-repro` 引用，但是否关单仍看父 `tk`
 
 最小内容：
 
 ```md
-# tk0615.s03-electron-bridge
+# tk0001.s03-verify
 
 env: <host>:<abs-workdir>@<short-sha>
 
@@ -321,14 +321,14 @@ unblock_action:
 
 | name | sid | slot | engine | role | binding | note |
 |---|---|---|---|---|---|---|
-| neo | sid019dd9af | A | current-engine | frontend | thread:019dd9af... | continue tk1021 |
+| ana | sid019dd9af | A | current-runtime | ui | thread:019dd9af... | continue tk0001 |
 
 ## Pool
 
 - ana
 - ben
 - cal
-- neo
+- nia
 ```
 
 规则：
@@ -336,7 +336,7 @@ unblock_action:
 - `name` 是人类输入层，不是唯一身份
 - `sid` 是本轮上下文的唯一追责锚
 - 日常身份初始化只问 `name`，不要主动把 `sid` 暴露给用户；`sid` 只用于文件、review author、commit trailer
-- `engine` 必须写当前 runtime，如 `codex` / `claude` / `gemini`；不要照抄示例值
+- `engine` 必须写当前 runtime，如 `current-runtime` / `alternate-runtime` / `review-runtime`；不要照抄示例值
 - 有物理 thread id 时，从 thread id 派生 `sid`，如 `sid019dd9af`；不从 `refs/agent-names.md` 顺序发号
 - 没有 thread id 时，用时间戳加短随机或本地唯一后缀派生 `sid`，如 `sid260517-ab3d`；禁止全局纯自增
 - `slot` 是可选口头槽位，如 `A` / `B` / `C`
@@ -347,7 +347,7 @@ unblock_action:
 - session 启动时不自动写 `refs/agent-names.md`
 - 交互式新 session 应主动问用户要一个新名字或继承旧名字；只问 `name`，不提 `sid`
 - 非交互或后台任务不询问、不占名，只用 `sid`
-- 用户说“继续 neo 的工作”时，追加新行：`name=neo`、当前 `sid`、`note=continue ...`
+- 用户说“继续 ana 的工作”时，追加新行：`name=ana`、当前 `sid`、`note=continue ...`
 - 用户说“取个新名字”时，只在交互场景从项目 `Pool` 取第一个未绑定过的名字
 - `Pool` 耗尽时不自动造名，继续用 `sid`，提示用户后续补名字
 - 用户指定自定义名时，先查冲突；已存在则在交互场景问继承还是重置，非交互场景只用 `sid`
@@ -417,7 +417,7 @@ unblock_action:
 规则：
 
 - 单文件优先：默认只用 `refs/radar.md`
-- 不按域提前拆 `radar-frontend.md` / `radar-host.md`
+- 不按域提前拆 `radar-ui.md` / `radar-runtime.md`
 - scope 写进 `域:` 字段
 - 只有当 `watching` 超过 80 条、文件超过 2000 行、单域超过 50 条，或清理 radar 本身变贵时，才考虑物理拆分
 - 每条必须有 `触:`；没有触发条件，不写 radar
@@ -432,13 +432,13 @@ unblock_action:
 ## ob20260517-001 local-storage-read-helper-dup
 
 时: 2026-05-17
-源: tk1026
-域: frontend
-位: ComposerBar / MessageActionBar
+源: tk0001
+域: ui
+位: module-a / module-b
 观: localStorage read helpers are duplicated.
 判: not worth a task until reuse grows.
 触: third copy appears or defaults diverge again.
-动: promote to shared renderer helper task.
+动: promote to shared ui helper task.
 态: watching
 ```
 
@@ -560,9 +560,9 @@ review 命名规则：
 
 例子：
 
-- `tk0061.rv001-r001-codex.md`
-- `tk0061.rv001-r002-mobile007kx.md`
-- `tk0061.rv001-r003-codex.md`
+- `tk0001.rv001-r001-current-runtime.md`
+- `tk0001.rv001-r002-author-a.md`
+- `tk0001.rv001-r003-current-runtime.md`
 
 ## 8. dne 关闭门槛
 
@@ -633,7 +633,7 @@ action：
 
 规则：
 
-- 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面按 kind 分配下一个可用 id
+- 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面按全局数字命名空间分配下一个可用 id
 - 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rNNN-author>`，不走全局发号
 - 新建 progress 时走 `task.sh progress <task-id> <sNN-slug> [state]`
 - `task.sh new` / `task.sh review` / `task.sh progress` 前必须先读相关 `pl` / `rs` / `tk` / `rv` / progress 真相源，确认当前 scope 没有被已有任务覆盖
@@ -643,7 +643,7 @@ action：
 - `task.sh reopen <id> <reason>` 只接受当前或已归档的 `dne` issue，写入 `reopened_at` / `reopen_reason`，并重新写入 `claimed_*`
 - `move` 是单步控制面动作，不是流水线；尤其 `dne` / `arvd` 这类带 gate 的状态，必须等上一步成功落盘并重读真相后再推进
 - `task.sh check` 对缺失 `claimed_at` 或长时间未推进的 `doi` 发警告，不自动回滚、不新增旁路锁文件
-- 当多个 agent 共享同一个引擎名（例如都叫 `codex`）时，`claimed_thread_id` 是主识别信号；`claimed_by` 只保留粗粒度身份
+- 当多个 agent 共享同一个引擎名（例如都叫 `current-runtime`）时，`claimed_thread_id` 是主识别信号；`claimed_by` 只保留粗粒度身份
 - `doi` 超时只触发接管检查，不触发自动回滚；接手前必须检查现场、跑 `task.sh orphan-scan <base-ref> <task-id>`，并在控制面显式改状态或交接
 
 ## 9.2 收尾回收
@@ -690,15 +690,15 @@ action：
 
 例子：
 
-- `[本轮完成，下一阶段：实现-tk0061]`
-- `[本轮完成，下一阶段：审阅-tk0061]`
-- `[本轮完成，下一阶段：修复-tk0061.rv001]`
-- `[本轮完成，下一阶段：提交-tk0061]`
-- `[本轮完成，下一阶段：推送-tk0061]`
-- `[本轮完成，下一阶段：需用户决策-支付降级方案]`
-- `[本轮已完成(tk0061)，阶段结束]`
-- `tk0061 已收口到 dne。task.sh find tk0061：只指向 dne；task.sh check：ok；task.sh prune tk0061 <base-ref>：ok，仅回收 tk0061 绑定的 worktree 与本地分支。根仓仍有外来活动线，未纳入本次提交。`
-- `全场快速扫视：控制面另有 tk0138.doi、pl0046.tdo；执行面仍有 2 个外来 worktree，均未接管。`
+- `[本轮完成，下一阶段：实现-tk0001]`
+- `[本轮完成，下一阶段：审阅-tk0001]`
+- `[本轮完成，下一阶段：修复-tk0001.rv001]`
+- `[本轮完成，下一阶段：提交-tk0001]`
+- `[本轮完成，下一阶段：推送-tk0001]`
+- `[本轮完成，下一阶段：需用户决策-方案取舍]`
+- `[本轮已完成(tk0001)，阶段结束]`
+- `tk0001 已收口到 dne。task.sh find tk0001：只指向 dne；task.sh check：ok；task.sh prune tk0001 <base-ref>：ok，仅回收 tk0001 绑定的 worktree 与本地分支。根仓仍有外来活动线，未纳入本次提交。`
+- `全场快速扫视：控制面另有 tk0002.doi、pl0003.tdo；执行面仍有 2 个外来 worktree，均未接管。`
 
 ## 11. 单任务示例
 
@@ -706,16 +706,16 @@ action：
 
 ```text
 issues/
-  tk0061.doi.runtime.daily-production-stats-log.p1.md
+  tk0001.doi.runtime.daily-production-stats-log.p1.md
 
 docs/reviews/
-  tk0061.rv001-r001-codex.md
-  tk0061.rv001-r002-mobile007kx.md
-  tk0061.rv001-r003-codex.md
+  tk0001.rv001-r001-current-runtime.md
+  tk0001.rv001-r002-author-a.md
+  tk0001.rv001-r003-current-runtime.md
 
 docs/progress/
-  tk0061.s01-repro.dne.md
-  tk0061.s02-fix.doi.md
+  tk0001.s01-repro.dne.md
+  tk0001.s02-fix.doi.md
 
 refs/
   agent-names.md
@@ -723,16 +723,16 @@ refs/
   project-memory-aaak.md
 
 docs/
-  operator-checklist-tk0061.md
+  operator-checklist-tk0001.md
 ```
 
 流转：
 
-1. 建任务：`tk0061.tdo...`
-2. 开做：`tk0061.doi...`
-3. 长任务过程：按需新增 `docs/progress/tk0061.sNN-*.state.md`
-4. 首轮评审：新增 `tk0061.rv001-r001-codex.md`
-5. 回复评审：新增 `tk0061.rv001-r002-mobile007kx.md`
-6. 二轮评审：新增 `tk0061.rv001-r003-codex.md`
-7. 修复或回复 review：新增后续 `rv` 或 `progress`，任务仍保持 `tk0061.doi...`
-8. 人工关闭：progress 全部 `dne`，任务文件改名 `tk0061.dne...`
+1. 建任务：`tk0001.tdo...`
+2. 开做：`tk0001.doi...`
+3. 长任务过程：按需新增 `docs/progress/tk0001.sNN-*.state.md`
+4. 首轮评审：新增 `tk0001.rv001-r001-current-runtime.md`
+5. 回复评审：新增 `tk0001.rv001-r002-author-a.md`
+6. 二轮评审：新增 `tk0001.rv001-r003-current-runtime.md`
+7. 修复或回复 review：新增后续 `rv` 或 `progress`，任务仍保持 `tk0001.doi...`
+8. 人工关闭：progress 全部 `dne`，任务文件改名 `tk0001.dne...`
