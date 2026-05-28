@@ -127,7 +127,7 @@ Agent names:
 - Interactive new sessions ask for a name or inheritance; do not show `sid`.
 - Write `refs/agent-names.md` only after the user confirms a name.
 - `engine` must be the current runtime; do not copy example values.
-- Use `sid` for `claimed_by`, review author, and commit trailers. `name` is for humans.
+- If a `sid` is known, pass it with `AGATA_CLAIMANT` for `claimed_by`, review author, and commit trailers. Otherwise helpers fall back to `assignee` / `owner`. `name` is for humans.
 - Derive `sid` from thread id when possible; otherwise use timestamp plus short random/local suffix. Never use global counters.
 - No `online` / `offline`; there is no heartbeat.
 
@@ -149,6 +149,15 @@ Coverage tables are read-only snapshots, not a second ledger.
 - If the table disagrees with `issues/`, discard and regenerate it.
 - Use `dispatch/action`, not `ready?`: `closed`, `active`, `dispatchable`, `blocked`, `gap`, `evidence-only`.
 - `dne` / `arvd` rows are `closed`; never report them as backlog, pending, design-in-progress, or priority pressure.
+
+## Graph Relations
+
+`refs/graph.md` is a context-synthesis map, not workflow task truth.
+
+- State, owner, and completion still come from `issues/`, `rv`, and progress evidence.
+- Add an entity only when it is repeatedly referenced, is a relation hub, or omission makes context synthesis guess.
+- Allowed edge fields default to: `type`, `defined_by`, `uses`, `used_by`, `avoids`, `related_to`, `separate_from`, `records`, `updated`.
+- Do not add a new entity or edge type if an existing entity or field can express it.
 
 ## References
 

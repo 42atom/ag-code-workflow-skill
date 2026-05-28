@@ -33,6 +33,7 @@
 - `docs/progress/` 是 task-scoped 执行 workpad，不是第二套 issue 系统
 - `refs/agent-names.md` 是 agent 名字登记，只解决人类呼叫名到 `sid` 的映射；不是任务状态
 - `refs/radar.md` 是观察点日志，只记录“真实但尚未立项”的工程雷达点；不是 backlog、review、progress 或 memory
+- `refs/graph.md` 是 context synthesis 关系图；不是任务状态、owner 或 completion 真相
 - `aidocs/` 只作 AI 协作暂存区，不是真相源，不参与 workflow id、状态、review、memory 判断
 - `active-mainline.md` 只做导航，不承载状态
 - `issues/` 根目录是 live working set 加最近 `dne` 缓冲；旧 `dne` 物理归档到 `issues/archive/YYYY/`，状态仍保持 `dne`
@@ -115,7 +116,7 @@ state：
 - 有方向但不适合马上执行，落 `pl` 并保持 `tdo`
 - 立刻可执行且验收清楚，落 `tk.tdo`，认领后进 `tk.doi`
 - 未来必做但依赖未满足，仍落 `tk.tdo`，用 `depends_on` 写前置；不得用 `cand` 表示 DAG 等待
-- 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md`、`docs/` 或产品资源目录
+- 资料原文、设计参考、AI 草稿、生成报告，先放 `aidocs/`；稳定后再迁到 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/graph.md`、`refs/project-memory-aaak.md`、`docs/` 或产品资源目录
 - 子代理原始输出、失败记录、半成品回传，先放 `aidocs/agent-runs/`；只有主控 agent 裁决后，才提升到 `tk` / `rv` / memory / mainline
 - 综合审计、最近 N 小时审计、全仓审计、跨任务 review、没有唯一父 issue 的审阅，先放 `aidocs/agent-runs/`；它们是低信任审计材料，不是正式 review
 - 综合审计经主控 triage 后，每条 finding 只能三种去向：`reject` 留在原始材料，`attach` 到已有父 issue 的 `rv`，或 `split` 成一个具体 `tk`
@@ -351,7 +352,8 @@ unblock_action:
 - 用户说“取个新名字”时，只在交互场景从项目 `Pool` 取第一个未绑定过的名字
 - `Pool` 耗尽时不自动造名，继续用 `sid`，提示用户后续补名字
 - 用户指定自定义名时，先查冲突；已存在则在交互场景问继承还是重置，非交互场景只用 `sid`
-- `claimed_by`、review author、commit trailer 优先写 `sid`；`name` 只辅助人读
+- 已知 `sid` 时，通过 `AGATA_CLAIMANT` 让 `claimed_by`、review author、commit trailer 写 `sid`；未传入时 helper 回退到 `assignee` / `owner`
+- `name` 只辅助人读
 - 文件变长时允许人工裁剪或归档旧行，只保留近期有用映射；旧映射由 Git 历史承担审计
 
 ## 6. 历史记忆层
@@ -388,7 +390,33 @@ unblock_action:
 - 对带 `memory: required | done` 的任务，记忆文件必须显式写 `锚: tkNNNN` / `锚：tkNNNN` 或 `锚: tkNNNNN` / `锚：tkNNNNN`
 - 只认稳定 id 锚点，不认正文里偶然出现一次的 task id
 
-## 6.1 Radar 观察点
+## 6.1 Graph 关系图
+
+文件：
+
+- `refs/graph.md`
+
+职责：
+
+- 保存长期稳定 typed relations，帮助 context synthesis 少猜
+- 作为可读、可编辑、可版本控制的关系图
+
+禁止：
+
+- 不承载 task status / owner / completion
+- 不复制 plan coverage state
+- 不替代 `depends_on` / `links` / `rv` / progress / radar
+- 不把生成的 HTML / JSON 当 workflow truth
+
+规则：
+
+- node state 只从文件名解析
+- graph 输出若和 `issues/` 冲突，永远以 `issues/` 为准
+- 新 entity 必须满足：被 3 个以上稳定文档/任务反复引用，或是多个 entity 的关系枢纽，或不写会导致 context synthesis 靠猜
+- 默认边类型只允许：`type`、`defined_by`、`uses`、`used_by`、`avoids`、`related_to`、`separate_from`、`records`、`updated`
+- 不得新增 entity 或 edge type，除非现有 entity / field 无法表达
+
+## 6.2 Radar 观察点
 
 文件：
 
@@ -500,7 +528,7 @@ review 命名规则：
 
 - 一个活跃 task 默认对应一个专属 worktree
 - 主 checkout 是共享控制面；helper 可从 linked worktree 调用并把真相写回主 checkout
-- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/project-memory-aaak.md` 的权威改动只落在共享控制面
+- `issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/graph.md`、`refs/project-memory-aaak.md` 的权威改动只落在共享控制面
 - linked worktree 里的这些 truth path 只是该分支镜像，不是权威真相视图
 - linked task worktree 若需要写验证记录、review 草稿或实现笔记，先写在非真相路径；不得直接改上述真相路径里的正式文件
 - `tdo -> doi`、`doi -> bkd|cand|dne`、`rv` 新建/回合推进、memory 锚点、派单更新都属于控制面动作，必须先在主 checkout 落盘
@@ -543,11 +571,11 @@ review 命名规则：
 共享真相可达性规则：
 
 - `pl` 与任何 `tdo` 态文档属于共享待排期真相，不允许只存在于临时 task worktree / snapshot branch
-- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/project-memory-aaak.md` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
+- 共享控制面上，`issues/`、`docs/reviews/`、`docs/progress/`、`refs/agent-names.md`、`refs/radar.md`、`refs/graph.md`、`refs/project-memory-aaak.md` 的无关脏改，以及未跟踪 `tk` / `pl` / `rs` / `rf` / `rv` 文件，默认视为外来活动线，不叫“噪声”
 - 判断外来活动线时，先看 task id、state、`claimed_at`、`claimed_by`、`claimed_thread_id`、links、相邻 review / radar / memory / agent-name 锚点；没有证据前，不得擅自当成废稿或顺手并入当前提交
 - 未经明确接管，不得删除、改名、暂存或提交外来活动线；当前提交只收自己的真相改动，别线单独报告
 - 若某个 task worktree 中出现了只在本地可见的 `doi` / `rv` / memory 改动，视为控制面漂移；必须先收回主 checkout，再继续执行
-- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
+- 清理 worktree / 删除快照分支前，必须先跑 `task.sh orphan-scan <base-ref>`；只要它报出 `issues/`、`docs/reviews/`、`docs/progress/`、`refs/radar.md`、`refs/graph.md`、`refs/project-memory-aaak.md` 的漂移，就不能直接清理
 - 若项目记忆、review、progress 或 git 历史提到某个 `tk` / `pl` / `rs` / `rf` / `rv`，但当前真相源找不到，先跑 `task.sh orphan-scan <base-ref> <id>`，再用 `git log --all` / `git grep` 追溯；禁止直接假定它不存在
 - 任何 `tkNNNN-*` 测试文件命名前，必须确认 `issues/` 中已有同号 controlling `tk`
 - 若测试只是服务已有主单的 source-lock、回归或结构断言，不得新占一个 task id；复用 owner task 号或使用非 task-id 命名
@@ -592,11 +620,12 @@ review 命名规则：
 
 - `arvd` 是终态，不应残留在 `issues/` 根目录
 - 归档后的任务应位于 `issues/archive/YYYY/`
-- `check` 发现根目录 `tk*.arvd.*.md` 时必须失败
+- `check` 发现根目录 `{tk,pl,rs,rf}*.arvd.*.md` 时必须失败
 - `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 32`
 - `archive-done` 只做物理归档，不把 `.dne.` 改成 `.arvd.`
 - `issues/archive/YYYY/` 已经说明文件是冷历史；不需要再用文件名重复表达“已归档”
 - `task.sh check` 不自动移动 `dne` 文件，最多由操作者显式清理上下文
+- `task.sh archive` 只服务 legacy / manual `.arvd.` 冷归档；普通 done 收口不要用它
 
 ## 9. 提交规范
 

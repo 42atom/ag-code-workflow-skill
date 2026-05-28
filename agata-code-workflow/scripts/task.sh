@@ -10,7 +10,7 @@ RESERVED_STATE_WORDS="tdo doi rvw dne bkd cand arvd"
 VALID_MEMORY_MODES="none required done"
 STALE_DOI_SECONDS=259200
 ID_DIGITS_RE='[0-9]{4,5}'
-TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/agent-names.md" "refs/radar.md" "refs/project-memory-aaak.md")
+TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/agent-names.md" "refs/radar.md" "refs/graph.md" "refs/project-memory-aaak.md")
 VALID_KINDS="tk pl rs rf"
 NEW_ID_LOCK_DIR=""
 
@@ -1320,6 +1320,7 @@ linked_worktree_has_execution_diff() {
     ":(exclude)docs/progress"
     ":(exclude)refs/agent-names.md"
     ":(exclude)refs/radar.md"
+    ":(exclude)refs/graph.md"
     ":(exclude)refs/project-memory-aaak.md"
   )
 
@@ -1336,6 +1337,7 @@ print_linked_worktree_execution_diff() {
     ":(exclude)docs/progress"
     ":(exclude)refs/agent-names.md"
     ":(exclude)refs/radar.md"
+    ":(exclude)refs/graph.md"
     ":(exclude)refs/project-memory-aaak.md"
   )
 
@@ -1718,10 +1720,10 @@ check_arvd_residue() {
   local root="$1"
   local residue
 
-  residue="$(find "$root/issues" -maxdepth 1 -type f -name 'tk*.arvd.*.md' | sort)"
+  residue="$(find "$root/issues" -maxdepth 1 -type f \( -name 'tk*.arvd.*.md' -o -name 'pl*.arvd.*.md' -o -name 'rs*.arvd.*.md' -o -name 'rf*.arvd.*.md' \) | sort)"
   if [[ -n "$residue" ]]; then
     echo "$residue" >&2
-    die "archived task residue detected in issues/"
+    die "archived issue residue detected in issues/"
   fi
 }
 

@@ -12,6 +12,7 @@ Use it when you want a lightweight file-based workflow instead of a separate iss
 - review files are parent-first and round-based
 - `refs/agent-names.md` carries optional human-friendly agent names
 - `refs/radar.md` carries non-task observations waiting for a trigger
+- `refs/graph.md` carries durable typed relations for context synthesis
 - `aidocs/` is an AI collaboration staging area, not workflow truth
 
 ## What It Covers
@@ -57,6 +58,7 @@ Use it whenever work touches:
 - `docs/reviews/`
 - `refs/agent-names.md`
 - `refs/radar.md`
+- `refs/graph.md`
 - `refs/project-memory-aaak.md`
 - filename-based task state changes
 
@@ -84,7 +86,6 @@ Common commands:
 ./agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate p1
 ./agata-code-workflow/scripts/task.sh move 10061 doi
 ./agata-code-workflow/scripts/task.sh move pl10062 doi
-./agata-code-workflow/scripts/task.sh archive 10061
 ./agata-code-workflow/scripts/task.sh archive-done --keep 32
 ./agata-code-workflow/scripts/task.sh prune 10061 origin/main
 ./agata-code-workflow/scripts/task.sh check
@@ -105,19 +106,21 @@ During migration, `task.sh check` warns on old stateful links by default. Use `A
 `tdo` is the backlog, not "ready now". Required future work with unmet dependencies stays `tdo` and declares `depends_on`; `cand` is not a DAG waiting state.
 Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
 `issues/` root is the live working set plus the latest done buffer. After close-out, run `task.sh archive-done --keep 32`; it moves older `.dne.` issue docs into `issues/archive/YYYY/` without changing their state. Directory location says cold history; filename state still says lifecycle. `task.sh check` never does this automatically.
+`task.sh archive` still exists for legacy/manual `.arvd.` cold archive, but normal done cleanup uses `archive-done`.
 Selective reading: default to `issues/` root plus direct anchors. Helpers may scan archive paths for ids and validation, but agents should not bulk-read archived bodies unless a direct anchor, regression, duplicate-scope check, or user history request requires it.
 Use `refs/agent-names.md` when the project wants short names for agent sessions. The name is for the user; `sid` is the durable audit id. Names may be reused only by explicit user intent.
 Use `refs/radar.md` for observations that are real but not yet tasks. Each entry needs a trigger condition; without a trigger, do not write it. Keep one file first and use a `域:` field for scope. Split only when the file itself becomes expensive to read.
+Use `refs/graph.md` only for stable typed relations. It is a context map, not task status, owner, completion, or plan coverage truth.
 
 No shadow database. No second state system.
 Use `aidocs/` for raw materials, external references, design resources, AI-generated drafts, raw sub-agent run output, and generated workflow views. It is not a truth source and should not carry task state, review conclusions, or project memory.
 Suggested staging layout: `aidocs/inbox/`, `aidocs/references/`, `aidocs/design/`, `aidocs/generated/`, `aidocs/agent-runs/`.
-Before closure, promote anything durable to its real owner: execution truth to `issues/`, execution workpad to `docs/progress/`, review exchange to `docs/reviews/`, observations to `refs/radar.md`, agent names to `refs/agent-names.md`, long-lived memory to `refs/project-memory-aaak.md`, project documentation to `docs/`, and product assets to the product asset tree.
+Before closure, promote anything durable to its real owner: execution truth to `issues/`, execution workpad to `docs/progress/`, review exchange to `docs/reviews/`, observations to `refs/radar.md`, stable typed relations to `refs/graph.md`, agent names to `refs/agent-names.md`, long-lived memory to `refs/project-memory-aaak.md`, project documentation to `docs/`, and product assets to the product asset tree.
 When the user explicitly wants sub-agents, the primary agent owns dispatch, recovery, and closure. Raw sub-agent output is advisory until promoted into `tk`, `rv`, memory, docs, or mainline code. Failed or partial sub-agent runs go to `aidocs/agent-runs/` for recovery, not to workflow truth.
-In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, and `refs/project-memory-aaak.md` are branch mirrors, not the authoritative truth view.
+In a linked worktree, local `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, `refs/graph.md`, and `refs/project-memory-aaak.md` are branch mirrors, not the authoritative truth view.
 Workflow helpers such as `task.sh ls`, `find`, `show`, `new`, `review`, `progress`, `move`, `archive`, and `prune` automatically resolve truth through the shared control plane, even when you call them from a linked task worktree.
 `task.sh check` is split on purpose: truth-pollution checks stay local to the current worktree, while all workflow semantics and staleness checks read from the shared control plane. `task.sh orphan-scan` keeps the current-worktree lens while also comparing shared refs.
-If a task worktree needs notes or drafts, keep them outside `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, and `refs/project-memory-aaak.md` until the authoritative update is ready to land on the shared checkout.
+If a task worktree needs notes or drafts, keep them outside `issues/`, `docs/reviews/`, `docs/progress/`, `refs/agent-names.md`, `refs/radar.md`, `refs/graph.md`, and `refs/project-memory-aaak.md` until the authoritative update is ready to land on the shared checkout.
 A successful `task.sh check` only says the workflow semantics are valid. It does not mean every dirty truth file on the shared control plane belongs to your current task line.
 On the shared control plane, unrelated truth-path edits and untracked workflow docs are foreign active lines by default, not "noise". Inspect their task id, state, `claimed_at`, `claimed_by`, `claimed_thread_id`, links, and nearby review or memory evidence before deciding whether another agent is landing truth.
 Unless you are explicitly taking over, do not delete, rename, stage, or absorb those foreign active lines into your own commit.
@@ -272,6 +275,7 @@ your-project/
   docs/progress/
   refs/agent-names.md  # optional
   refs/radar.md
+  refs/graph.md
   refs/project-memory-aaak.md
 ```
 

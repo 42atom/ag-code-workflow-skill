@@ -253,10 +253,23 @@ memory: none
 links: []
 ---
 EOF
+write_file "$project_root/issues/pl10012.arvd.runtime.plan-archive-residue.p1.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: root-level arvd plan files should not survive after archive
+scope: detect non-task archive residue too
+risk: low
+accept: check fails on non-task residue
+memory: none
+links: []
+---
+EOF
 
 run_task "$project_root" check
 assert_eq "$task_status" "1" "check should fail on root-level arvd residue"
-assert_contains "$task_stderr" "archived task residue detected" "check should explain archive residue failure"
+assert_contains "$task_stderr" "archived issue residue detected" "check should explain archive residue failure"
+assert_contains "$task_stderr" "pl10012.arvd.runtime.plan-archive-residue.p1.md" "check should report non-task arvd residue"
 
 rm -rf "$project_root"
 
@@ -1556,6 +1569,26 @@ EOF
 run_task "$project_root" orphan-scan main
 assert_eq "$task_status" "1" "orphan-scan should fail on untracked radar truth"
 assert_contains "$task_stdout" "worktree ?? refs/radar.md" "orphan-scan should report untracked radar path"
+
+rm -rf "$project_root"
+
+######## orphan-scan should treat refs/graph.md as workflow control-plane truth
+
+project_root="$(make_git_project)"
+write_file "$project_root/refs/graph.md" <<'EOF'
+# Graph
+
+## shared-helper
+
+type: concept
+defined_by: tk10059
+uses: runtime-helper
+updated: 2026-05-17
+EOF
+
+run_task "$project_root" orphan-scan main
+assert_eq "$task_status" "1" "orphan-scan should fail on untracked graph truth"
+assert_contains "$task_stdout" "worktree ?? refs/graph.md" "orphan-scan should report untracked graph path"
 
 rm -rf "$project_root"
 

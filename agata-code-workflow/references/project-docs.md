@@ -11,6 +11,7 @@ Workflow truth stays in the workflow system:
 - `docs/progress/` for task-scoped execution workpad steps
 - `refs/agent-names.md` for optional agent session names
 - `refs/radar.md` for non-task observations waiting for a trigger
+- `refs/graph.md` for durable typed relations that help context synthesis
 - `refs/project-memory-aaak.md` for long-lived project memory
 
 Ordinary docs are things like:
@@ -70,6 +71,7 @@ Rules:
 - promote review exchange to `docs/reviews/`
 - promote agent session names to `refs/agent-names.md`
 - promote non-task observations with triggers to `refs/radar.md`
+- promote stable typed relations to `refs/graph.md`
 - promote long-lived memory to `refs/project-memory-aaak.md`
 - put runtime product assets in the repo's product asset tree, not in `aidocs/`
 
