@@ -1,6 +1,6 @@
 ---
 name: agata-code-workflow
-description: Use when the user wants to create, update, review, or validate Agata-style file-based workflow artifacts such as task files, plan files, research files, progress step files, review threads, radar observations, agent names, or operator checklists. Also use it for ordinary project documentation in repos that follow this workflow, so docs stay aligned with the same truth-source boundaries. Covers parent-first review naming, filename-based state transitions, issue/progress/review separation, review round naming, adjacent project docs, and minimal workflow discipline for local Git-based collaboration.
+description: Create, update, review, or validate Agata file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs.
 ---
 
 # Agata Code Workflow
@@ -50,8 +50,7 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 16. Default to one primary agent, one controlling task line, and one dedicated execution worktree.
 17. The shared root checkout is the workflow control plane; task worktrees are execution sites, not second control planes.
 18. Cross-boundary contracts must name who defines, produces, and consumes before implementation.
-19. Lock and sequencing code: first collaborate with the human to freeze the single owner, state machine diagrams / sequence diagrams, and failure paths; then let AI fill in the implementation.
-20. Cross-process communication, persistence, state machines, lifecycle, replay, debug, and contract changes need real-boundary smoke/integration evidence, not only single-process unit tests.
+19. Cross-process communication, persistence, state machines, lifecycle, replay, debug, and contract changes need real-boundary smoke/integration evidence, not only single-process unit tests.
 
 ## Standard Path
 
@@ -65,6 +64,10 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 8. Close code tasks only after implementation is landed on target mainline, verification evidence is written, progress is drained, `task.sh check` passes, and cleanup is ready.
 9. Use `task.sh reopen <id> <reason>` when review, smoke, or user acceptance finds same-task work after `dne`. New scope gets a new `tk`.
 10. After close-out, run `task.sh archive-done --keep 32` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
+
+## Risk Gates
+
+- Lock and sequencing code: first collaborate with the human to freeze the single owner, state machine diagrams / sequence diagrams, and failure paths; then let AI fill in the implementation.
 
 ## Bundled Helpers
 
@@ -121,6 +124,13 @@ Radar entry:
 
 Agent names:
 
+- Interactive new sessions ask for a name or inheritance; do not show `sid`.
+- Write `refs/agent-names.md` only after the user confirms a name.
+- `engine` must be the current runtime; do not copy example values.
+- Use `sid` for `claimed_by`, review author, and commit trailers. `name` is for humans.
+- Derive `sid` from thread id when possible; otherwise use timestamp plus short random/local suffix. Never use global counters.
+- No `online` / `offline`; there is no heartbeat.
+
 ```md
 # Agent Names
 
@@ -142,7 +152,7 @@ Coverage tables are read-only snapshots, not a second ledger.
 
 ## References
 
-Read only what the task needs:
+Read only what the task needs. Do not open `workflow-rules.md` end-to-end by default; search or open the relevant section.
 
 - `references/workflow-rules.md`: exact naming, states, transitions, script semantics, worktree rules, review/progress details, concurrency, dispatch loop, and edge cases.
 - `references/aaak-zh.md`: dense semantic compression and memory-style body blocks.
