@@ -1,6 +1,6 @@
 ---
 name: agata-code-workflow
-description: Create, update, review, or validate file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs.
+description: "Create, update, review, or validate file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs."
 ---
 
 # Agata Code Workflow
