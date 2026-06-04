@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -euo pipefail
 
@@ -92,12 +92,42 @@ release_new_id_lock() {
   fi
 }
 
+read_new_id_lock_pid() {
+  local lock_dir="$1"
+  local owner_file="$lock_dir/owner"
+
+  [[ -f "$owner_file" ]] || return 1
+  awk -F= '$1 == "pid" { print $2; exit }' "$owner_file"
+}
+
+pid_is_alive() {
+  local pid="$1"
+
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 "$pid" 2>/dev/null
+}
+
+clear_stale_new_id_lock() {
+  local lock_dir="$1"
+  local pid
+
+  pid="$(read_new_id_lock_pid "$lock_dir" || true)"
+  if [[ -n "$pid" ]] && pid_is_alive "$pid"; then
+    die "new id allocation is busy: ${lock_dir} (pid ${pid})"
+  fi
+
+  warn "clearing stale new id allocation lock: ${lock_dir}"
+  rm -f "$lock_dir/owner" 2>/dev/null || true
+  rmdir "$lock_dir" 2>/dev/null || die "stale new id allocation lock is not removable: ${lock_dir}"
+}
+
 acquire_new_id_lock() {
   local root="$1"
 
   NEW_ID_LOCK_DIR="$root/.agata-new-id.lock"
   if ! mkdir "$NEW_ID_LOCK_DIR" 2>/dev/null; then
-    die "new id allocation is busy: ${NEW_ID_LOCK_DIR}"
+    clear_stale_new_id_lock "$NEW_ID_LOCK_DIR"
+    mkdir "$NEW_ID_LOCK_DIR" 2>/dev/null || die "new id allocation is busy: ${NEW_ID_LOCK_DIR}"
   fi
   printf 'pid=%s\ncreated_at=%s\n' "$$" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >"$NEW_ID_LOCK_DIR/owner"
   trap release_new_id_lock EXIT
@@ -676,31 +706,23 @@ resolve_task_worktree() {
 next_doc_digits() {
   local root="$1"
   local kind="$2"
+  local path base digits num max_num width next_num
 
-  python3 - "$root" <<'PY'
-from pathlib import Path
-import re
-import sys
+  max_num=0
+  width=4
+  while IFS= read -r path; do
+    base="$(basename "$path")"
+    if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\. ]]; then
+      digits="${BASH_REMATCH[2]}"
+      num=$((10#$digits))
+      (( num > max_num )) && max_num="$num"
+      (( ${#digits} > width )) && width="${#digits}"
+    fi
+  done < <(find "$root/issues" -type f -name "*.md" | sort)
 
-root = Path(sys.argv[1])
-pattern = re.compile(r"^(tk|pl|rs|rf)(\d{4,5})\.")
-max_num = 0
-width = 4
-
-base = root / "issues"
-if base.exists():
-    for path in sorted(base.rglob("*.md")):
-        match = pattern.match(path.name)
-        if not match:
-            continue
-        digits = match.group(2)
-        max_num = max(max_num, int(digits))
-        width = max(width, len(digits))
-
-next_num = max_num + 1
-width = max(width, len(str(next_num)), 4)
-print(str(next_num).zfill(width))
-PY
+  next_num=$((max_num + 1))
+  (( ${#next_num} > width )) && width="${#next_num}"
+  printf "%0${width}d\n" "$next_num"
 }
 
 issue_doc_path() {
@@ -1078,42 +1100,43 @@ upsert_frontmatter_scalar() {
   local temp_file
 
   temp_file="$(mktemp)"
-  python3 - "$file" "$temp_file" "$key" "$value" <<'PY'
-from pathlib import Path
-import sys
-
-src = Path(sys.argv[1])
-dst = Path(sys.argv[2])
-key = sys.argv[3]
-value = sys.argv[4]
-
-text = src.read_text(encoding="utf-8")
-lines = text.splitlines(keepends=True)
-
-if not lines or lines[0].strip() != "---":
-    raise SystemExit(f"error: missing frontmatter in {src}")
-
-end = None
-for idx in range(1, len(lines)):
-    if lines[idx].strip() == "---":
-        end = idx
-        break
-
-if end is None:
-    raise SystemExit(f"error: unterminated frontmatter in {src}")
-
-frontmatter = lines[1:end]
-replacement = f"{key}: {value}\n"
-
-for idx, line in enumerate(frontmatter):
-    if line.startswith(f"{key}:"):
-        frontmatter[idx] = replacement
-        break
-else:
-    frontmatter.append(replacement)
-
-dst.write_text("".join([lines[0], *frontmatter, *lines[end:]]), encoding="utf-8")
-PY
+  if ! awk -v key="$key" -v value="$value" -v src="$file" '
+    NR == 1 {
+      if ($0 != "---") {
+        print "error: missing frontmatter in " src > "/dev/stderr"
+        exit 2
+      }
+      print
+      next
+    }
+    !done {
+      if ($0 == "---") {
+        if (!written) {
+          print key ": " value
+        }
+        print
+        done = 1
+        next
+      }
+      if ($0 ~ "^" key ":") {
+        print key ": " value
+        written = 1
+        next
+      }
+      print
+      next
+    }
+    { print }
+    END {
+      if (!done) {
+        print "error: unterminated frontmatter in " src > "/dev/stderr"
+        exit 2
+      }
+    }
+  ' "$file" >"$temp_file"; then
+    rm -f "$temp_file"
+    return 1
+  fi
   mv "$temp_file" "$file"
 }
 
@@ -1247,7 +1270,7 @@ cmd_archive() {
 cmd_archive_done() {
   local root="$1"
   local keep="$2"
-  local year archive_dir
+  local year archive_dir records record count moved num kind base file archived_file
 
   assert_control_plane_checkout "$root" "archive-done"
   [[ "$keep" =~ ^[0-9]+$ ]] || die "keep must be a non-negative integer"
@@ -1256,40 +1279,35 @@ cmd_archive_done() {
   archive_dir="$root/issues/archive/${year}"
   mkdir -p "$archive_dir"
 
-  python3 - "$root" "$archive_dir" "$keep" <<'PY'
-from pathlib import Path
-import re
-import shutil
-import sys
+  records="$(
+    while IFS= read -r file; do
+      base="$(basename "$file")"
+      if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\.dne\..*\.md$ ]]; then
+        kind="${BASH_REMATCH[1]}"
+        num=$((10#${BASH_REMATCH[2]}))
+        printf '%s\t%s\t%s\t%s\n' "$num" "$kind" "$base" "$file"
+      fi
+    done < <(find "$root/issues" -maxdepth 1 -type f -name "*.dne.*.md" | sort)
+  )"
 
-root = Path(sys.argv[1])
-archive_dir = Path(sys.argv[2])
-keep = int(sys.argv[3])
-pattern = re.compile(r"^(?P<kind>tk|pl|rs|rf)(?P<digits>\d{4,5})\.dne\..*\.md$")
+  count=0
+  moved=0
+  while IFS=$'\t' read -r num kind base file; do
+    [[ -n "$file" ]] || continue
+    count=$((count + 1))
+    if (( count <= keep )); then
+      continue
+    fi
+    archived_file="${archive_dir}/${base}"
+    [[ ! -e "$archived_file" ]] || die "archive target already exists: ${archived_file}"
+    mv "$file" "$archived_file"
+    echo "$archived_file"
+    moved=1
+  done < <(printf '%s\n' "$records" | sort -t $'\t' -k1,1nr -k2,2r -k3,3r)
 
-done_docs = []
-for path in sorted((root / "issues").glob("*.dne.*.md")):
-    match = pattern.match(path.name)
-    if not match or not path.is_file():
-        continue
-    done_docs.append((int(match.group("digits")), match.group("kind"), path.name, path))
-
-done_docs.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
-to_archive = done_docs[keep:]
-
-moved = []
-for _, _, _, src in to_archive:
-    dst = archive_dir / src.name
-    if dst.exists():
-        raise SystemExit(f"error: archive target already exists: {dst}")
-    shutil.move(str(src), str(dst))
-    moved.append(str(dst))
-
-if moved:
-    print("\n".join(moved))
-else:
-    print("ok")
-PY
+  if [[ "$moved" -eq 0 ]]; then
+    echo "ok"
+  fi
 }
 
 assert_prune_target_clean() {
@@ -1356,50 +1374,68 @@ assert_prune_not_self_destructing() {
 
 check_duplicate_issue_ids() {
   local root="$1"
-  local duplicates
+  local exact_file bare_file global_file path base kind digits num issue_id
+  local duplicates cross_warnings
 
-  if ! duplicates="$(
-    python3 - "$root/issues" <<'PY'
-from pathlib import Path
-import re
-import sys
+  exact_file="$(mktemp)"
+  bare_file="$(mktemp)"
+  global_file="$(mktemp)"
+  while IFS= read -r path; do
+    base="$(basename "$path")"
+    if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\. ]]; then
+      kind="${BASH_REMATCH[1]}"
+      digits="${BASH_REMATCH[2]}"
+      num=$((10#$digits))
+      issue_id="${kind}${digits}"
+      printf '%s\t%s\n' "$issue_id" "$path" >>"$exact_file"
+      printf '%s:%s\t%s\n' "$kind" "$num" "$issue_id" >>"$bare_file"
+      printf '%s\t%s\n' "$num" "$issue_id" >>"$global_file"
+    fi
+  done < <(find "$root/issues" -type f -name "*.md" | sort)
 
-root = Path(sys.argv[1])
-pattern = re.compile(r"^(?P<kind>tk|pl|rs|rf)(?P<digits>\d{4,5})\.")
+  duplicates="$(
+    awk -F '\t' '
+      { paths[$1] = paths[$1] ? paths[$1] ", " $2 : $2; count[$1]++ }
+      END { for (key in count) if (count[key] > 1) print "exact:" key " -> " paths[key] }
+    ' "$exact_file"
+    awk -F '\t' '
+      { seen[$1, $2] = 1 }
+      END {
+        for (pair in seen) {
+          split(pair, parts, SUBSEP)
+          key = parts[1]
+          id = parts[2]
+          ids[key] = ids[key] ? ids[key] ", " id : id
+          count[key]++
+        }
+        for (key in count) if (count[key] > 1) print "bare:" key " -> " ids[key]
+      }
+    ' "$bare_file"
+  )"
 
-exact_ids = {}
-bare_ids = {}
-global_digits = {}
+  cross_warnings="$(
+    awk -F '\t' '
+      { seen[$1, $2] = 1 }
+      END {
+        for (pair in seen) {
+          split(pair, parts, SUBSEP)
+          key = parts[1]
+          id = parts[2]
+          ids[key] = ids[key] ? ids[key] ", " id : id
+          count[key]++
+        }
+        for (key in count) if (count[key] > 1) printf "warning: cross-kind numeric id collision: %04d -> %s\n", key, ids[key]
+      }
+    ' "$global_file"
+  )"
 
-for path in sorted(root.rglob("*.md")):
-    match = pattern.match(path.name)
-    if not match:
-        continue
-    kind = match.group("kind")
-    digits = match.group("digits")
-    issue_id = f"{kind}{digits}"
-    exact_ids.setdefault(issue_id, []).append(str(path))
-    bare_ids.setdefault((kind, int(digits)), set()).add(issue_id)
-    global_digits.setdefault(int(digits), set()).add(issue_id)
+  rm -f "$exact_file" "$bare_file" "$global_file"
 
-problems = []
-for task_id, paths in sorted(exact_ids.items()):
-    if len(paths) > 1:
-        problems.append(f"exact:{task_id} -> " + ", ".join(paths))
+  if [[ -n "$cross_warnings" ]]; then
+    echo "$cross_warnings" >&2
+  fi
 
-for (kind, bare_num), issue_ids in sorted(bare_ids.items()):
-    if len(issue_ids) > 1:
-        problems.append(f"bare:{kind}{bare_num} -> " + ", ".join(sorted(issue_ids)))
-
-if problems:
-    print("\n".join(problems))
-    raise SystemExit(1)
-
-for bare_num, issue_ids in sorted(global_digits.items()):
-    if len(issue_ids) > 1:
-        print(f"warning: cross-kind numeric id collision: {bare_num:04d} -> " + ", ".join(sorted(issue_ids)), file=sys.stderr)
-PY
-  )"; then
+  if [[ -n "$duplicates" ]]; then
     echo "$duplicates" >&2
     die "duplicate or colliding issue ids detected"
   fi

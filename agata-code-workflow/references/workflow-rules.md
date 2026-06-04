@@ -134,6 +134,8 @@ state：
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
 - `task.sh new` 按 `tk` / `pl` / `rs` / `rf` 共享数字命名空间发号；kind 是类型，不是编号命名空间
 - `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
+- `.agata-new-id.lock/owner` 的 `pid` 仍存活才算 busy；pid 已消失的孤儿锁由 helper 清理后重试
+- `task.sh` 是 workflow 底座，不依赖 Python 运行时；文件扫描、排序、frontmatter 小改动用 bash / awk / find / sort
 - 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现
 
 稳定引用规则：

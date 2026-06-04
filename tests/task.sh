@@ -1011,13 +1011,25 @@ rm -rf "$project_root"
 project_root="$(make_git_project)"
 
 mkdir "$project_root/.agata-new-id.lock"
+write_file "$project_root/.agata-new-id.lock/owner" <<EOF
+pid=$$
+created_at=2026-06-04T00:00:00Z
+EOF
 run_task "$project_root" new tk runtime locked-attempt p1
 assert_eq "$task_status" "1" "new should fail while the id allocation lock exists"
 assert_contains "$task_stderr" "new id allocation is busy" "new should explain id allocation lock contention"
+rm -f "$project_root/.agata-new-id.lock/owner"
 rmdir "$project_root/.agata-new-id.lock"
 
+mkdir "$project_root/.agata-new-id.lock"
+write_file "$project_root/.agata-new-id.lock/owner" <<'EOF'
+pid=999999
+created_at=2026-06-04T00:00:00Z
+EOF
+
 run_task "$project_root" new tk runtime sample-created p1
-assert_eq "$task_status" "0" "new tk should succeed in shared root checkout"
+assert_eq "$task_status" "0" "new tk should clear stale id lock and succeed in shared root checkout"
+assert_contains "$task_stderr" "clearing stale new id allocation lock" "new should report stale lock cleanup"
 assert_eq "$task_stdout" "$project_root/issues/tk0001.tdo.runtime.sample-created.p1.md" "new tk should allocate first 4-digit id"
 [[ -f "$task_stdout" ]] || fail "new tk should create the file"
 grep -q "memory: none" "$task_stdout" || fail "new tk should include default memory mode"
