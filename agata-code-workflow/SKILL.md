@@ -1,6 +1,6 @@
 ---
 name: agata-code-workflow
-description: "Create, update, review, or validate file-workflow artifacts: issues, progress, reviews, radar, graph, agent names, and aligned project docs."
+description: "File-based async execution workflow: filename states as truth, worktree execution, and durable issue/review/progress/refs artifacts."
 ---
 
 # Agata Code Workflow
@@ -50,7 +50,6 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 16. Default to one primary agent, one controlling task line, and one dedicated execution worktree.
 17. The shared root checkout is the workflow control plane; task worktrees are execution sites, not second control planes.
 18. Cross-boundary contracts must name who defines, produces, and consumes before implementation.
-19. Cross-process communication, persistence, state machines, lifecycle, replay, debug, and contract changes need real-boundary smoke/integration evidence, not only single-process unit tests.
 
 ## Standard Path
 
@@ -65,9 +64,10 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 9. Use `task.sh reopen <id> <reason>` when review, smoke, or user acceptance finds same-task work after `dne`. New scope gets a new `tk`.
 10. After close-out, run `task.sh archive-done --keep 32` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
 
-## Risk Gates
+## Collaboration Discipline (非硬性契约)
 
-- Lock and sequencing code: first collaborate with the human to freeze the single owner, state machine diagrams / sequence diagrams, and failure paths; then let AI fill in the implementation.
+- Align on single owner, state machine, sequence of boundary transitions, and failure paths before delegating implementation to AI.
+- Lock and sequencing code before execution: confirm owner, contract edge cases, and state-machine boundaries with the human; AI implements only within the agreed boundary.
 
 ## Bundled Helpers
 
@@ -163,7 +163,7 @@ Coverage tables are read-only snapshots, not a second ledger.
 
 Read only what the task needs. Do not open `workflow-rules.md` end-to-end by default; search or open the relevant section.
 
-- `references/workflow-rules.md`: exact naming, states, transitions, script semantics, worktree rules, review/progress details, concurrency, dispatch loop, and edge cases.
+- `references/workflow-rules.md`: exact naming, states, transitions, script semantics, worktree rules, review/progress details, concurrency, dispatch loop, edge cases, and agent-names protocol.
 - `references/aaak-zh.md`: dense semantic compression and memory-style body blocks.
 - `references/aaak-profiles.md`: workflow-specific AAAK profiles for `tk`, `rs`, `rv`, and project memory.
 - `references/project-docs.md`: ordinary project docs that must not become workflow truth.
