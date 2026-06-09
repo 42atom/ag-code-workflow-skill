@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+TASK_SH="$ROOT/agata-code-workflow/scripts/task.sh"
+if [[ ! -f "$TASK_SH" ]]; then
+  exit 0
+fi
+
+mapfile -d '' -t CHANGED < <(git diff --cached --name-only -z --diff-filter=ACMR)
+if (( ${#CHANGED[@]} == 0 )); then
+  exit 0
+fi
+
+ARGS=(check)
+
+for file in "${CHANGED[@]}"; do
+  ARGS+=(--changed "$file")
+done
+
+bash "$TASK_SH" "${ARGS[@]}"
