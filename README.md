@@ -86,14 +86,18 @@ Common commands:
 ./agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate p1
 ./agata-code-workflow/scripts/task.sh move 10061 doi
 ./agata-code-workflow/scripts/task.sh move pl10062 doi
+./agata-code-workflow/scripts/task.sh batch-close pl10062
+./agata-code-workflow/scripts/task.sh reopen 10061 --from progress s03-verify
 ./agata-code-workflow/scripts/task.sh archive-done --keep 32
+./agata-code-workflow/scripts/task.sh archive-done --keep 32 --yes
 ./agata-code-workflow/scripts/task.sh prune 10061 origin/main
 ./agata-code-workflow/scripts/task.sh check
+./agata-code-workflow/scripts/task.sh check --changed issues/10061.tdo.runtime.add-claim-gate.md docs/reviews/tk10061.rv001-r001-review-runtime.note.md
 ./agata-code-workflow/scripts/task.sh orphan-scan origin/main
 ./agata-code-workflow/scripts/progress_view.py --project-root . --no-open
 ```
 
-For `task.sh new`, the contract is literal: `<kind> <board> <slug> [prio]`.
+For `task.sh new`, the contract is literal: `<kind> <board> <slug> [--from pl-id] [prio]`.
 `board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
 Issue ids are allocated from one global numeric namespace across `tk` / `pl` / `rs` / `rf`. Kind is type, not an id namespace. Existing old numbering is not migrated just to make sequences look tidy.
 Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
@@ -107,6 +111,8 @@ During migration, `task.sh check` warns on old stateful links by default. Use `A
 Fresh `tk` / `pl` / `rs` / `rf` docs use lean frontmatter: `owner`, `assignee`, `recap`, `why`, `scope`, `accept`, `risk`, `memory`, `depends_on`, `links`. `reviewer` is not a static field; review participants belong in `rv` exchange records.
 `issues/` root is the live working set plus the latest done buffer. After close-out, run `task.sh archive-done --keep 32`; it moves older `.dne.` issue docs into `issues/archive/YYYY/` without changing their state. Directory location says cold history; filename state still says lifecycle. `task.sh check` never does this automatically.
 `task.sh archive` still exists for legacy/manual `.arvd.` cold archive, but normal done cleanup uses `archive-done`.
+`task.sh check --changed` only validates the changed truth paths and still keeps the same full-check safety.
+Use `agata-code-workflow/templates/pre-commit` if you want pre-commit to run incremental check (`--changed`) automatically.
 Selective reading: default to `issues/` root plus direct anchors. Helpers may scan archive paths for ids and validation, but agents should not bulk-read archived bodies unless a direct anchor, regression, duplicate-scope check, or user history request requires it.
 Use `refs/agent-names.md` when the project wants short names for agent sessions. The name is for the user; `sid` is the durable audit id. Names may be reused only by explicit user intent.
 Use `refs/radar.md` for observations that are real but not yet tasks. Each entry needs a trigger condition; without a trigger, do not write it. Keep one file first and use a `域:` field for scope. Split only when the file itself becomes expensive to read.
@@ -162,13 +168,37 @@ docs/progress/tk0001.s03-verify.doi.md
 
 Rules:
 
-- valid states are `tdo`, `doi`, `dne`, `bkd`
+- valid states are `tdo`, `doi`, `dne`, `bkd`, `cand`, `arvd`
 - one parent `tk` may have at most one `doi` progress step
-- closed parent tasks cannot leave open progress steps
+- closed/archived parent tasks cannot leave open progress steps
 - progress is workpad evidence, not closure authority
 - parent `tk.links` may use stable anchors like `tk0001.s01-repro`
 
 Close-out lives in the parent `tk` as a Completion Bar: progress drained, acceptance met, validation done, review feedback swept, implementation on mainline, `task.sh check` pass, worktree ready for cleanup. `accept` is the task contract; progress is evidence; Completion Bar is the close gate.
+
+## Practical Advantages
+
+- No second state engine: filename is the source of truth.
+ - Fast path for commit-time checks: `pre-commit` passes staged paths into `check --changed`, so commit checks stay small.
+ - Fast by construction: no index build, no daemon, no caching layer.
+ - Rule-first and fail-loud: `error` is hard stop, `warn` is secondary and collapses to a summary.
+ - Localized scan: `--changed` checks changed truth docs and their immediate anchors first, falling back to full scan only when scope cannot be resolved.
+
+### 5-line onboarding flow
+
+```bash
+bash agata-code-workflow/scripts/task.sh check
+bash agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate
+bash agata-code-workflow/scripts/task.sh move tk10061 doi
+bash agata-code-workflow/scripts/task.sh progress tk10061 s01-repro
+bash agata-code-workflow/scripts/task.sh move tk10061 dne
+```
+
+Archive when needed:
+
+```bash
+bash agata-code-workflow/scripts/task.sh archive-done --keep 32
+```
 
 ## AAAK
 

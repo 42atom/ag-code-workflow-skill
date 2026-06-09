@@ -5,22 +5,65 @@ set -euo pipefail
 ######## task workflow helper
 
 VALID_STATES="tdo doi dne bkd cand arvd"
-VALID_PROGRESS_STATES="tdo doi dne bkd"
+VALID_PROGRESS_STATES="tdo doi dne bkd cand arvd"
 RESERVED_STATE_WORDS="tdo doi rvw dne bkd cand arvd"
+VALID_REVIEW_RESULTS="block pass note"
 VALID_MEMORY_MODES="none required done"
 STALE_DOI_SECONDS=259200
 ID_DIGITS_RE='[0-9]{4,5}'
 TRUTH_SCAN_PATHS=("issues" "docs/reviews" "docs/progress" "refs/agent-names.md" "refs/radar.md" "refs/graph.md" "refs/project-memory-aaak.md")
 VALID_KINDS="tk pl rs rf"
 NEW_ID_LOCK_DIR=""
+declare -a CHECK_ISSUE_FILES=()
+declare -a CHECK_REVIEW_FILES=()
+declare -a CHECK_PROGRESS_FILES=()
+declare -A CHECK_PROGRESS_SLUGS=()
+declare -A CHECK_REVIEW_ANCHOR_PREFIXES=()
 
 die() {
-  echo "error: $*" >&2
+  if [[ -t 2 ]]; then
+    printf '\033[31merror: %s\033[0m\n' "$*" >&2
+  else
+    echo "error: $*" >&2
+  fi
   exit 1
 }
 
+declare -A CHECK_WARNING_COUNTS=()
+CHECK_WARNING_TOTAL=0
+CHECK_SCOPE_FULL=1
+CHECK_SCOPE_MODE=full
+
 warn() {
-  echo "warning: $*" >&2
+  local key="warning: $*"
+  local count=${CHECK_WARNING_COUNTS["$key"]-0}
+  CHECK_WARNING_COUNTS["$key"]=$((count + 1))
+  CHECK_WARNING_TOTAL=$((CHECK_WARNING_TOTAL + 1))
+
+  if [[ "${AGATA_SHOW_WARNINGS:-0}" == "1" ]]; then
+    if [[ -t 2 ]]; then
+      printf '\033[33m%s\033[0m\n' "$key" >&2
+    else
+      echo "$key" >&2
+    fi
+  fi
+}
+
+emit_warning_summary() {
+  local key
+
+  [[ "${AGATA_COLLAPSE_WARNINGS:-1}" == "1" ]] || return 0
+  [[ "$CHECK_WARNING_TOTAL" -eq 0 ]] && return 0
+
+  if [[ -t 2 ]]; then
+    printf '\n\033[33mwarning summary (%s total):\033[0m\n' "$CHECK_WARNING_TOTAL" >&2
+  else
+    printf '\nwarning summary (%s total):\n' "$CHECK_WARNING_TOTAL" >&2
+  fi
+
+  for key in $(printf '%s\n' "${!CHECK_WARNING_COUNTS[@]}" | sort); do
+    printf '  %s (x%s)\n' "$key" "${CHECK_WARNING_COUNTS[$key]-0}" >&2
+  done
 }
 
 is_valid_state() {
@@ -442,34 +485,101 @@ assert_progress_drained_for_close() {
   local root="$1"
   local issue_id="$2"
   local new_state="$3"
-  local open_progress
+  local file parent_file parent_state progress_state bad_file base step_slug
 
   [[ "$issue_id" =~ ^tk${ID_DIGITS_RE}$ ]] || return 0
   [[ "$new_state" == "dne" || "$new_state" == "cand" || "$new_state" == "arvd" ]] || return 0
   [[ -d "$root/docs/progress" ]] || return 0
 
-  open_progress="$(find "$root/docs/progress" -maxdepth 1 -type f \( -name "${issue_id}.*.tdo.md" -o -name "${issue_id}.*.doi.md" -o -name "${issue_id}.*.bkd.md" \) | sort)"
-  if [[ -n "$open_progress" ]]; then
-    printf '%s\n' "$open_progress" >&2
-    die "open progress must be drained before closing ${issue_id}"
+  parent_file="$(find_task_file_anywhere "$root" "$issue_id")"
+  parent_state="$(task_state_from_file "$parent_file")"
+
+  while IFS= read -r file; do
+    base="$(basename "$file")"
+    [[ "$base" =~ ^(tk${ID_DIGITS_RE})\.(s[0-9]{2}-[a-z0-9-]+)\.(tdo|doi|dne|bkd|cand|arvd)\.md$ ]] || continue
+    progress_state="${BASH_REMATCH[3]}"
+    step_slug="${BASH_REMATCH[2]}"
+
+    bad_file="$root/docs/progress/${issue_id}.${step_slug}.${progress_state}.md"
+    if [[ "$parent_state" == "tdo" ]]; then
+      die "${bad_file} exists while ${issue_id} is still tdo; move ${issue_id} to doi first"
+    fi
+    if [[ "$parent_state" == "doi" && "$progress_state" != "doi" && "$progress_state" != "dne" ]]; then
+      die "${bad_file} is ${progress_state} but parent is ${issue_id}.${parent_state}; expected doi or dne, move to dne first"
+    fi
+    if [[ "$parent_state" =~ ^(dne|cand|arvd|bkd)$ && "$progress_state" != "dne" ]]; then
+      die "${bad_file} is ${progress_state} but parent is ${issue_id}.${parent_state}; move it to dne before close"
+    fi
+  done < <(find "$root/docs/progress" -maxdepth 1 -type f -name "${issue_id}.*.md" | sort)
+
+  if [[ "$parent_state" == "dne" || "$parent_state" == "cand" || "$parent_state" == "arvd" || "$parent_state" == "bkd" ]]; then
+    return 0
   fi
+
+  if [[ "$parent_state" == "doi" ]]; then
+    return 0
+  fi
+}
+
+assert_blocking_review_gate() {
+  local root="$1"
+  local issue_id="$2"
+  local target_state="$3"
+  local review_file
+
+  [[ "$target_state" == "dne" ]] || return 0
+
+  while IFS= read -r review_file; do
+    is_review_result_blocking "$review_file" || continue
+    die "${review_file} blocks ${issue_id} from dne; resolve this review result or remove review file first"
+  done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name "${issue_id}.rv*.md" | sort)
+}
+
+reopen_from_progress() {
+  local root="$1"
+  local issue_id="$2"
+  local step_hint="$3"
+  local pattern file match_count target
+  local -a matches=()
+
+  if [[ "$step_hint" =~ ^s[0-9]{2}-[a-z0-9-]+$ ]]; then
+    pattern="${issue_id}.${step_hint}.dne.md"
+  elif [[ "$step_hint" =~ ^s[0-9]{2}$ ]]; then
+    pattern="${issue_id}.${step_hint}-*.dne.md"
+  else
+    die "invalid progress step for reopen: ${step_hint}; use sNN or sNN-slug"
+  fi
+
+  while IFS= read -r file; do
+    matches+=("$file")
+  done < <(find "$root/docs/progress" -maxdepth 1 -type f -name "$pattern" | sort)
+
+  match_count="${#matches[@]}"
+  [[ "$match_count" -gt 0 ]] || die "progress file not found for ${issue_id} ${step_hint} in dne state"
+  [[ "$match_count" -eq 1 ]] || die "multiple progress matches for ${issue_id} ${step_hint}; disambiguate with full step slug"
+
+  file="${matches[0]}"
+  target="${file%.dne.md}.doi.md"
+  [[ ! -e "$target" ]] || die "cannot reopen progress state: target exists ${target}"
+  mv "$file" "$target"
 }
 
 print_usage() {
   cat <<'EOF'
 usage:
-  task.sh new <kind> <board> <slug> [prio]
+  task.sh new <kind> <board> <slug> [--from pl-id] [prio]
   task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]
   task.sh progress <task-id> <sNN-slug> [state]
   task.sh ls [state]
   task.sh find <id>
   task.sh show <task-id>
   task.sh move <issue-id> <state>
-  task.sh reopen <issue-id> <reason>
+  task.sh reopen <issue-id> [reason] [--from progress <step>]
+  task.sh batch-close <issue-id> [state]
   task.sh archive <task-id>
-  task.sh archive-done [--keep N]
+  task.sh archive-done [--keep N] [--yes]
   task.sh prune <task-id> <base-ref>
-  task.sh check
+  task.sh check [--changed <file> ...]
   task.sh orphan-scan <base-ref> [filter]
 EOF
 }
@@ -485,6 +595,149 @@ is_git_repo() {
   local root="$1"
 
   git -C "$root" rev-parse --show-toplevel >/dev/null 2>&1
+}
+
+build_check_file_cache() {
+  local current_root="$1"
+  local semantic_root="$2"
+  shift 2
+  local file base stem
+  local issue_id
+  local raw abs
+  local -A seen_path=()
+  local -A seen_issue_progress=()
+  local -a files=("$@")
+
+  CHECK_ISSUE_FILES=()
+  CHECK_REVIEW_FILES=()
+  CHECK_PROGRESS_FILES=()
+  CHECK_PROGRESS_SLUGS=()
+  CHECK_REVIEW_ANCHOR_PREFIXES=()
+  CHECK_SCOPE_FULL=1
+  CHECK_SCOPE_MODE="full"
+
+  if [[ "${#files[@]}" -gt 0 ]]; then
+    CHECK_SCOPE_FULL=0
+    CHECK_SCOPE_MODE="incremental"
+
+    for raw in "${files[@]}"; do
+      if [[ "$raw" == /* ]]; then
+        abs="$raw"
+      else
+        abs="$current_root/$raw"
+        if [[ ! -f "$abs" ]]; then
+          abs="$semantic_root/$raw"
+        fi
+      fi
+
+      [[ -f "$abs" ]] || continue
+      abs="$(cd "$(dirname "$abs")" && pwd -P)/$(basename "$abs")"
+      [[ "$abs" == "$current_root/"* || "$abs" == "$semantic_root/"* ]] || continue
+      [[ -n "${seen_path["$abs"]+x}" ]] && continue
+      seen_path["$abs"]=1
+
+      if [[ "$abs" == "$current_root/issues/"* || "$abs" == "$semantic_root/issues/"* ]]; then
+        CHECK_ISSUE_FILES+=("$abs")
+      elif [[ "$abs" == "$current_root/docs/reviews/"* || "$abs" == "$semantic_root/docs/reviews/"* ]]; then
+        CHECK_REVIEW_FILES+=("$abs")
+      elif [[ "$abs" == "$current_root/docs/progress/"* || "$abs" == "$semantic_root/docs/progress/"* ]]; then
+        CHECK_PROGRESS_FILES+=("$abs")
+      fi
+    done
+
+    if (( ${#CHECK_ISSUE_FILES[@]} + ${#CHECK_REVIEW_FILES[@]} + ${#CHECK_PROGRESS_FILES[@]} == 0 )); then
+      warn "no valid changed docs matched check scope; fallback to full scan"
+      return 0
+    fi
+
+    for file in "${CHECK_PROGRESS_FILES[@]}"; do
+      base="$(basename "$file")"
+      stem="${base%.md}"
+      [[ "$stem" =~ \. ]] && CHECK_PROGRESS_SLUGS["${stem%.*}"]=1
+    done
+
+    for file in "${CHECK_ISSUE_FILES[@]}"; do
+      issue_id="$(task_id_from_file "$file")"
+
+      while IFS= read -r file; do
+        [[ -f "$file" ]] || continue
+        [[ -n "${seen_issue_progress["$file"]+x}" ]] && continue
+        seen_issue_progress["$file"]=1
+        CHECK_PROGRESS_FILES+=("$file")
+
+        base="$(basename "$file")"
+        stem="${base%.md}"
+        [[ "$stem" =~ \.(s[0-9]{2}-[a-z0-9-]+)\. ]] || continue
+        CHECK_PROGRESS_SLUGS["${issue_id}.${BASH_REMATCH[1]}"]=1
+      done < <(find "$semantic_root/docs/progress" -maxdepth 1 -type f -name "${issue_id}.*.md" 2>/dev/null | sort)
+    done
+
+    for file in "${CHECK_ISSUE_FILES[@]}" "${CHECK_REVIEW_FILES[@]}"; do
+      base="$(basename "$file")"
+      CHECK_REVIEW_ANCHOR_PREFIXES["${base%%.*}"]=1
+    done
+
+    return 0
+  fi
+
+  if [[ -d "$semantic_root/issues" ]]; then
+    mapfile -t CHECK_ISSUE_FILES < <(find "$semantic_root/issues" -maxdepth 1 -type f -name '*.md' | sort)
+  fi
+
+  if [[ -d "$semantic_root/docs/reviews" ]]; then
+    mapfile -t CHECK_REVIEW_FILES < <(find "$semantic_root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort)
+  fi
+
+  if [[ -d "$semantic_root/docs/progress" ]]; then
+    mapfile -t CHECK_PROGRESS_FILES < <(find "$semantic_root/docs/progress" -maxdepth 1 -type f -name '*.md' | sort)
+  fi
+
+  for file in "${CHECK_PROGRESS_FILES[@]}"; do
+    base="$(basename "$file")"
+    stem="${base%.md}"
+    [[ "$stem" =~ \. ]] && CHECK_PROGRESS_SLUGS["${stem%.*}"]=1
+  done
+
+  for file in "${CHECK_ISSUE_FILES[@]}" "${CHECK_REVIEW_FILES[@]}"; do
+    base="$(basename "$file")"
+    CHECK_REVIEW_ANCHOR_PREFIXES["${base%%.*}"]=1
+  done
+}
+
+check_issue_file_list() {
+  local root="$1"
+
+  if [[ "${#CHECK_ISSUE_FILES[@]}" -gt 0 ]]; then
+    printf '%s\n' "${CHECK_ISSUE_FILES[@]}"
+    return 0
+  fi
+
+  [[ -d "$root/issues" ]] || return 0
+  find "$root/issues" -maxdepth 1 -type f -name '*.md' | sort
+}
+
+check_review_file_list() {
+  local root="$1"
+
+  if [[ "${#CHECK_REVIEW_FILES[@]}" -gt 0 ]]; then
+    printf '%s\n' "${CHECK_REVIEW_FILES[@]}"
+    return 0
+  fi
+
+  [[ -d "$root/docs/reviews" ]] || return 0
+  find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort
+}
+
+check_progress_file_list() {
+  local root="$1"
+
+  if [[ "${#CHECK_PROGRESS_FILES[@]}" -gt 0 ]]; then
+    printf '%s\n' "${CHECK_PROGRESS_FILES[@]}"
+    return 0
+  fi
+
+  [[ -d "$root/docs/progress" ]] || return 0
+  find "$root/docs/progress" -maxdepth 1 -type f -name '*.md' | sort
 }
 
 resolve_repo_dir() {
@@ -753,8 +1006,13 @@ review_doc_path() {
   local issue_id="$2"
   local thread="$3"
   local round_author="$4"
+  local result="${5:-}"
 
-  printf '%s\n' "$root/docs/reviews/${issue_id}.${thread}-${round_author}.md"
+  if [[ -n "$result" ]]; then
+    printf '%s\n' "$root/docs/reviews/${issue_id}.${thread}-${round_author}.${result}.md"
+  else
+    printf '%s\n' "$root/docs/reviews/${issue_id}.${thread}-${round_author}.md"
+  fi
 }
 
 progress_doc_path() {
@@ -769,17 +1027,29 @@ progress_doc_path() {
 write_new_issue_doc() {
   local file="$1"
   local kind="$2"
-  local review_result="${3:-note}"
+  local recap_or_result="${3:-}"
+  local scope_hint="${4:-}"
+  local accept_hint="${5:-}"
+  local links_block="${6:-'  []'}"
+  local recap scope accept
+
+  recap="${recap_or_result:-态:tdo|核:TODO|界:TODO|验:TODO|下:TODO}"
+  scope="${scope_hint:-TODO}"
+  accept="${accept_hint:-TODO}"
 
   mkdir -p "$(dirname "$file")"
 
   case "$kind" in
     rv)
+      if [[ -z "$recap_or_result" ]]; then
+        recap_or_result="note"
+      fi
+      [[ "$recap_or_result" =~ ^(block|pass|note)$ ]] || die "invalid review result: ${recap_or_result}"
       cat >"$file" <<EOF
 ---
 owner: user
 assignee: agent
-result: ${review_result}
+result: ${recap_or_result}
 why: TODO
 scope: TODO
 risk: low
@@ -796,22 +1066,26 @@ TODO
 
 # 验证
 
-1. TODO
+	      1. TODO
 EOF
       ;;
     *)
-      cat >"$file" <<'EOF'
+      recap="$(sanitize_yaml_scalar "$recap")"
+      scope="$(sanitize_yaml_scalar "$scope")"
+      accept="$(sanitize_yaml_scalar "$accept")"
+      cat >"$file" <<EOF
 ---
 owner: user
 assignee: agent
-recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
+recap: "${recap}"
 why: TODO
-scope: TODO
+scope: "${scope}"
 risk: low
-accept: TODO
+accept: "${accept}"
 memory: none
 depends_on: []
-links: []
+links:
+${links_block}
 ---
 
 # 任务
@@ -865,13 +1139,187 @@ TODO
 EOF
 }
 
+sanitize_yaml_scalar() {
+  local value="$1"
+
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="$(printf '%s' "$value" | tr '\n' ' ')"
+  printf '%s\n' "$value"
+}
+
+sanitize_recap_value() {
+  local value="$1"
+  value="$(sanitize_yaml_scalar "$value")"
+  value="${value//|/}"
+  printf '%s\n' "$value"
+}
+
+parse_review_outcome_from_filename() {
+  local file="$1"
+  local base
+  base="$(basename "$file")"
+
+  if [[ "$base" == *.block.md ]]; then
+    echo "block"
+    return 0
+  fi
+  if [[ "$base" == *.pass.md ]]; then
+    echo "pass"
+    return 0
+  fi
+  if [[ "$base" == *.note.md ]]; then
+    echo "note"
+    return 0
+  fi
+
+  echo ""
+}
+
+is_review_result_blocking() {
+  local file="$1"
+  local outcome
+
+  outcome="$(parse_review_outcome_from_filename "$file")"
+  [[ "$outcome" == "block" ]] && return 0
+  [[ "$(extract_frontmatter_scalar "$file" "result")" == "block" ]] && return 0
+  return 1
+}
+
+format_frontmatter_links_block() {
+  local file="$1"
+  local line count=0
+  local link output
+
+  output=""
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    count=$((count + 1))
+    link="${line//\\/\\\\}"
+    link="${link//\"/\\\"}"
+    output="${output}  - \"${link}\""$'\n'
+  done < <(extract_frontmatter_links "$file")
+
+  if [[ "$count" -eq 0 ]]; then
+    echo "  []"
+    return 0
+  fi
+
+  printf '%s' "$output"
+}
+
+extract_issue_digits() {
+  local raw="$1"
+  if [[ "$raw" =~ ^tk([0-9]{4,5})$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if [[ "$raw" =~ ^([0-9]{4,5})$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+expand_issue_range() {
+  local range="$1"
+  local start_raw end_raw start_num end_num start_digits end_digits width
+  start_raw="${range%%..*}"
+  end_raw="${range#*..}"
+
+  start_digits="$(extract_issue_digits "$start_raw")"
+  end_digits="$(extract_issue_digits "$end_raw")"
+  [[ -n "$start_digits" && -n "$end_digits" ]] || die "invalid issue id range: ${range}"
+
+  if ((${#start_digits} != ${#end_digits})); then
+    die "issue id width mismatch in range: ${range}"
+  fi
+
+  start_num="$((10#${start_digits}))"
+  end_num="$((10#${end_digits}))"
+  if (( start_num > end_num )); then
+    die "range must be ascending: ${range}"
+  fi
+
+  width="${#start_digits}"
+  for ((i = start_num; i <= end_num; i++)); do
+    printf "tk%0*d\n" "$width" "$i"
+  done
+}
+
+derive_prefill_from_pl() {
+  local root="$1"
+  local board="$2"
+  local slug="$3"
+  local requested="$4"
+  local match
+  local -a matches=()
+
+  if [[ -n "$requested" ]]; then
+    requested="$(normalize_issue_id "$requested")"
+    match="$(find_issue_file "$root" "$requested")"
+    [[ "$requested" == pl* ]] || die "reopen from requires a pl issue id: ${requested}"
+    echo "$match"
+    return 0
+  fi
+
+  if [[ -z "$board" || -z "$slug" ]]; then
+    return 1
+  fi
+
+  while IFS= read -r match; do
+    matches+=("$match")
+  done < <(find "$root/issues" -maxdepth 1 -type f -name "pl*.${board}.${slug}.*.md" 2>/dev/null | sort)
+
+  if (( ${#matches[@]} != 1 )); then
+    return 1
+  fi
+
+  echo "${matches[0]}"
+  return 0
+}
+
+build_recap_from_pl() {
+  local pl_file="$1"
+  local scope accept links_summary
+
+  scope="$(sanitize_recap_value "$(extract_frontmatter_scalar "$pl_file" "scope")")"
+  accept="$(sanitize_recap_value "$(extract_frontmatter_scalar "$pl_file" "accept")")"
+  links_summary="$(extract_frontmatter_links "$pl_file" | tr '\n' ',' | sed 's/,$//')"
+
+  [[ -n "$scope" ]] || scope="TODO"
+  [[ -n "$accept" ]] || accept="TODO"
+  [[ -n "$links_summary" ]] || links_summary="TODO"
+  echo "态:tdo|核:${scope}|界:${accept}|验:TODO|下:${links_summary}"
+}
+
 cmd_new() {
   local root="$1"
   local kind="$2"
   local board="$3"
   local slug="$4"
-  local prio="${5:-}"
+  local from_pl="" prio="" arg prefill_file recap scope accept links
   local digits file
+
+  shift 4
+  while (( $# > 0 )); do
+    arg="$1"
+    case "$arg" in
+      --from)
+        shift
+        [[ $# -gt 0 ]] || die "usage: task.sh new <kind> <board> <slug> [--from pl-id] [prio]"
+        from_pl="$1"
+        shift
+        ;;
+      p[0-9]*)
+        prio="$1"
+        shift
+        ;;
+      *)
+        die "usage: task.sh new <kind> <board> <slug> [--from pl-id] [prio]"
+        ;;
+    esac
+  done
 
   assert_control_plane_checkout "$root" "new"
   if [[ "$kind" == "rp" ]]; then
@@ -893,12 +1341,26 @@ cmd_new() {
     [[ "$prio" =~ ^p[0-9]+$ ]] || die "prio must look like p0 / p1 / p2"
   fi
 
+  recap=""
+  scope=""
+  accept=""
+  links="  []"
+  if [[ "$kind" == "tk" ]]; then
+    prefill_file="$(derive_prefill_from_pl "$root" "$board" "$slug" "$from_pl" || true)"
+    if [[ -n "$prefill_file" ]]; then
+      recap="$(build_recap_from_pl "$prefill_file")"
+      scope="$(extract_frontmatter_scalar "$prefill_file" "scope")"
+      accept="$(extract_frontmatter_scalar "$prefill_file" "accept")"
+      links="$(format_frontmatter_links_block "$prefill_file")"
+    fi
+  fi
+
   acquire_new_id_lock "$root"
   digits="$(next_doc_digits "$root" "$kind")"
   file="$(issue_doc_path "$root" "$kind" "$digits" "$board" "$slug" "$prio")"
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
-  write_new_issue_doc "$file" "$kind"
+  write_new_issue_doc "$file" "$kind" "$recap" "$scope" "$accept" "$links"
   release_new_id_lock
   trap - EXIT
   echo "$file"
@@ -906,19 +1368,25 @@ cmd_new() {
 
 cmd_progress() {
   local root="$1"
-  local task_id step_slug state file parent_file parent_state
+  local task_id step_slug state requested_state file parent_file parent_state
 
   assert_control_plane_checkout "$root" "progress"
   task_id="$(normalize_task_id "$2")"
   step_slug="$3"
-  state="${4:-tdo}"
+  requested_state="${4:-}"
 
   parent_file="$(find_task_file_anywhere "$root" "$task_id")"
   parent_state="$(task_state_from_file "$parent_file")"
   [[ "$step_slug" =~ ^s[0-9]{2}-[a-z0-9-]+$ ]] || die "progress step must look like s01-repro"
-  is_valid_progress_state "$state" || die "invalid progress state: ${state}"
-  if [[ "$parent_state" =~ ^(dne|cand|arvd)$ && "$state" != "dne" ]]; then
-    die "closed task cannot start open progress: ${task_id}.${step_slug}.${state}"
+
+  if [[ "$parent_state" == "tdo" || "$parent_state" == "cand" || "$parent_state" == "arvd" || "$parent_state" == "bkd" ]]; then
+    state="dne"
+  else
+    state="doi"
+  fi
+
+  if [[ -n "$requested_state" && "$requested_state" != "$state" ]]; then
+    warn "progress state overridden from ${requested_state} to ${state} for ${task_id}.${step_slug}"
   fi
 
   file="$(progress_doc_path "$root" "$task_id" "$step_slug" "$state")"
@@ -943,7 +1411,7 @@ cmd_review() {
   [[ "$round_author" =~ ^r[0-9]{3}-[a-z0-9-]+$ ]] || die "review round must look like r001-author"
   [[ "$result" =~ ^(block|pass|note)$ ]] || die "review result must be block, pass, or note"
 
-  file="$(review_doc_path "$root" "$issue_id" "$thread" "$round_author")"
+  file="$(review_doc_path "$root" "$issue_id" "$thread" "$round_author" "$result")"
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
   write_new_issue_doc "$file" "rv" "$result"
@@ -956,16 +1424,18 @@ normalize_doc_id() {
     echo "tk${raw}"
     return 0
   fi
-  if [[ "$raw" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+(\.(tdo|doi|dne|bkd))?(\.md)?$ ]]; then
+  if [[ "$raw" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+(\.(tdo|doi|dne|bkd|cand|arvd))?(\.md)?$ ]]; then
     raw="${raw%.md}"
     raw="${raw%.tdo}"
     raw="${raw%.doi}"
     raw="${raw%.dne}"
     raw="${raw%.bkd}"
+    raw="${raw%.cand}"
+    raw="${raw%.arvd}"
     echo "$raw"
     return 0
   fi
-  if [[ "$raw" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.md)?$ ]]; then
+  if [[ "$raw" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?(\.md)?$ ]]; then
     echo "${raw%.md}"
     return 0
   fi
@@ -997,7 +1467,8 @@ find_doc_file() {
     return 0
   fi
 
-  if [[ "$doc_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+$ ]]; then
+  if [[ "$doc_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?$ ]]; then
+    doc_id="${doc_id%.md}"
     path="$root/docs/reviews/${doc_id}.md"
     [[ -f "$path" ]] || die "document not found for ${doc_id}"
     printf '%s\n' "$path"
@@ -1185,22 +1656,46 @@ resolve_claimed_thread_id() {
 
 cmd_move() {
   local root="$1"
-  local issue_id new_state file old_state new_file claimed_by claimed_thread_id
+  local issue_or_range="$2"
+  local new_state="$3"
+  local issue_id
+
+  is_valid_state "$new_state" || die "invalid state: ${new_state}"
+
+  if [[ "$issue_or_range" == *..* ]]; then
+    while IFS= read -r issue_id; do
+      move_issue_state "$root" "$issue_id" "$new_state" 0
+    done < <(expand_issue_range "$issue_or_range")
+  else
+    move_issue_state "$root" "$issue_or_range" "$new_state" 0
+  fi
+}
+
+move_issue_state() {
+  local root="$1"
+  local issue_id="$2"
+  local new_state="$3"
+  local skip_if_same_state="${4:-0}"
+  local file old_state new_file claimed_by claimed_thread_id
+
+  issue_id="$(normalize_issue_id "$issue_id")"
 
   assert_control_plane_checkout "$root" "move"
-  issue_id="$(normalize_issue_id "$2")"
-  new_state="$3"
-  is_valid_state "$new_state" || die "invalid state: ${new_state}"
 
   file="$(find_issue_file "$root" "$issue_id")"
   old_state="$(task_state_from_file "$file")"
 
   if [[ "$old_state" == "$new_state" ]]; then
+    if [[ "$skip_if_same_state" == "1" ]]; then
+      echo "$file"
+      return 0
+    fi
     die "issue already in state ${new_state}"
   fi
   can_transition "$old_state" "$new_state" || die "illegal transition: ${old_state} -> ${new_state}"
   assert_memory_gate_for_close "$root" "$file" "$new_state"
   assert_progress_drained_for_close "$root" "$issue_id" "$new_state"
+  assert_blocking_review_gate "$root" "$issue_id" "$new_state"
 
   new_file="$(rename_task_state "$file" "$new_state")"
   if [[ "$new_state" == "doi" ]]; then
@@ -1214,18 +1709,96 @@ cmd_move() {
   echo "$new_file"
 }
 
+find_issue_file_by_depends_on() {
+  local root="$1"
+  local dep_id="$2"
+  local file dep
+
+  while IFS= read -r file; do
+    while IFS= read -r dep; do
+      dep="$(strip_wrapping_quotes "$dep")"
+      [[ "$dep" == "$dep_id" ]] && printf '%s\n' "$file"
+    done < <(extract_frontmatter_depends_on "$file")
+  done < <(find "$root/issues" -maxdepth 1 -type f -name "*.md" | sort)
+}
+
+collect_batch_close_ids() {
+  local root="$1"
+  local issue_id="$2"
+  local -n seen="$3"
+  local -n order="$4"
+  local file dep_id
+
+  [[ -n "${seen["$issue_id"]+x}" ]] && return 0
+  seen["$issue_id"]=1
+
+  while IFS= read -r file; do
+    dep_id="$(task_id_from_file "$file")"
+    collect_batch_close_ids "$root" "$dep_id" seen order
+  done < <(find_issue_file_by_depends_on "$root" "$issue_id")
+
+  order+=("$issue_id")
+}
+
+cmd_batch_close() {
+  local root="$1"
+  local issue_id="$2"
+  local target_state="${3:-dne}"
+  local -A seen=()
+  local -a order=()
+  local target
+
+  is_valid_state "$target_state" || die "invalid state: ${target_state}"
+
+  issue_id="$(normalize_issue_id "$issue_id")"
+  collect_batch_close_ids "$root" "$issue_id" seen order
+  for target in "${order[@]}"; do
+    move_issue_state "$root" "$target" "$target_state" 1
+  done
+}
+
 cmd_reopen() {
   local root="$1"
-  local issue_id reason file old_state new_file claimed_by claimed_thread_id
+  local issue_id="$2"
+  shift 2
+
+  local reason from_progress
+  local file old_state new_file claimed_by claimed_thread_id
+
+  reason=""
+  from_progress=""
+  while (($# > 0)); do
+    case "$1" in
+      --from)
+        shift
+        [[ $# -gt 0 ]] || die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
+        [[ "$1" == "progress" ]] || die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
+        shift
+        [[ $# -gt 0 ]] || die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
+        from_progress="$1"
+        shift
+        ;;
+      *)
+        if [[ -n "$reason" ]]; then
+          die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
+        fi
+        reason="$1"
+        shift
+        ;;
+    esac
+  done
 
   assert_control_plane_checkout "$root" "reopen"
-  issue_id="$(normalize_issue_id "$2")"
-  reason="$3"
-  [[ -n "$reason" ]] || die "reopen reason is required"
+  issue_id="$(normalize_issue_id "$issue_id")"
+  [[ -n "$reason" || -n "$from_progress" ]] || die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
 
   file="$(find_issue_file_anywhere "$root" "$issue_id")"
   old_state="$(task_state_from_file "$file")"
   [[ "$old_state" == "dne" ]] || die "reopen requires dne state: ${old_state}"
+
+  if [[ -n "$from_progress" ]]; then
+    reopen_from_progress "$root" "$issue_id" "$from_progress"
+  fi
 
   new_file="$root/issues/$(task_basename_with_state "$file" "doi")"
   [[ ! -e "$new_file" ]] || die "reopen target already exists: ${new_file}"
@@ -1269,8 +1842,31 @@ cmd_archive() {
 
 cmd_archive_done() {
   local root="$1"
-  local keep="$2"
-  local year archive_dir records record count moved num kind base file archived_file
+  local keep="32"
+  local year archive_dir records moved_file count
+  local dry_run="1"
+  local record_count=0
+  local -a candidates=()
+  local archived_file target num kind base file
+
+  shift
+  while (( $# > 0 )); do
+    case "$1" in
+      --keep)
+        shift
+        [[ $# -gt 0 ]] || die "usage: task.sh archive-done [--keep N] [--yes]"
+        keep="$1"
+        shift
+        ;;
+      --yes)
+        dry_run="0"
+        shift
+        ;;
+      *)
+        die "usage: task.sh archive-done [--keep N] [--yes]"
+        ;;
+    esac
+  done
 
   assert_control_plane_checkout "$root" "archive-done"
   [[ "$keep" =~ ^[0-9]+$ ]] || die "keep must be a non-negative integer"
@@ -1290,22 +1886,42 @@ cmd_archive_done() {
     done < <(find "$root/issues" -maxdepth 1 -type f -name "*.dne.*.md" | sort)
   )"
 
-  count=0
-  moved=0
+  record_count=0
   while IFS=$'\t' read -r num kind base file; do
     [[ -n "$file" ]] || continue
-    count=$((count + 1))
-    if (( count <= keep )); then
+    record_count=$((record_count + 1))
+    if (( record_count <= keep )); then
       continue
     fi
-    archived_file="${archive_dir}/${base}"
-    [[ ! -e "$archived_file" ]] || die "archive target already exists: ${archived_file}"
-    mv "$file" "$archived_file"
-    echo "$archived_file"
-    moved=1
+    candidates+=("$file")
   done < <(printf '%s\n' "$records" | sort -t $'\t' -k1,1nr -k2,2r -k3,3r)
 
-  if [[ "$moved" -eq 0 ]]; then
+  if (( ${#candidates[@]} == 0 )); then
+    echo "archive-done preview: no files beyond keep=${keep}"
+    return 0
+  fi
+
+  if [[ "${dry_run}" == "1" ]]; then
+    echo "archive-done preview: ${#candidates[@]} file(s) would be moved (add --yes to apply)"
+    for archived_file in "${candidates[@]}"; do
+      base="$(basename "$archived_file")"
+      echo "  would move: ${archived_file} -> ${archive_dir}/${base}"
+    done
+    echo "archive-done --yes to execute"
+    return 0
+  fi
+
+  moved_file=0
+  for archived_file in "${candidates[@]}"; do
+    base="$(basename "$archived_file")"
+    target="${archive_dir}/${base}"
+    [[ ! -e "$target" ]] || die "archive target already exists: ${target}"
+    mv "$archived_file" "$target"
+    echo "$target"
+    moved_file=1
+  done
+
+  if [[ "$moved_file" -eq 0 ]]; then
     echo "ok"
   fi
 }
@@ -1374,71 +1990,133 @@ assert_prune_not_self_destructing() {
 
 check_duplicate_issue_ids() {
   local root="$1"
-  local exact_file bare_file global_file path base kind digits num issue_id
-  local duplicates cross_warnings
+  local path base kind digits num issue_id
+  local exact_file bare_file global_file duplicates cross_line cross_warnings
+  local -A touched_exact=()
+  local -A touched_numeric=()
+  local kind_key
+  local count=0
+  local ids=()
+  local id_count=0
+  local warn_line
 
-  exact_file="$(mktemp)"
-  bare_file="$(mktemp)"
-  global_file="$(mktemp)"
+  if [[ "$CHECK_SCOPE_FULL" -eq 1 ]]; then
+    exact_file="$(mktemp)"
+    bare_file="$(mktemp)"
+    global_file="$(mktemp)"
+
+    while IFS= read -r path; do
+      base="$(basename "$path")"
+      if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\. ]]; then
+        kind="${BASH_REMATCH[1]}"
+        digits="${BASH_REMATCH[2]}"
+        num=$((10#$digits))
+        issue_id="${kind}${digits}"
+        printf '%s\t%s\n' "$issue_id" "$path" >>"$exact_file"
+        printf '%s:%s\t%s\n' "$kind" "$num" "$issue_id" >>"$bare_file"
+        printf '%s\t%s\n' "$num" "$issue_id" >>"$global_file"
+      fi
+    done < <(check_issue_file_list "$root")
+
+    duplicates="$(
+      awk -F '\t' '
+        { paths[$1] = paths[$1] ? paths[$1] ", " $2 : $2; count[$1]++ }
+        END { for (key in count) if (count[key] > 1) print "exact:" key " -> " paths[key] }
+      ' "$exact_file"
+      awk -F '\t' '
+        { seen[$1, $2] = 1 }
+        END {
+          for (pair in seen) {
+            split(pair, parts, SUBSEP)
+            key = parts[1]
+            id = parts[2]
+            ids[key] = ids[key] ? ids[key] ", " id : id
+            count[key]++
+          }
+          for (key in count) if (count[key] > 1) print "bare:" key " -> " ids[key]
+        }
+      ' "$bare_file"
+    )"
+
+    while IFS= read -r cross_line; do
+      [[ -n "$cross_line" ]] && warn "$cross_line"
+    done < <(awk -F '\t' '
+      { seen[$1, $2] = 1 }
+      END {
+        for (pair in seen) {
+          split(pair, parts, SUBSEP)
+          key = parts[1]
+          id = parts[2]
+          ids[key] = ids[key] ? ids[key] ", " id : id
+          count[key]++
+        }
+        for (key in count) if (count[key] > 1) printf "cross-kind numeric id collision: %04d -> %s\n", key, ids[key]
+      }
+    ' "$global_file"
+    )
+
+    rm -f "$exact_file" "$bare_file" "$global_file"
+
+    if [[ -n "$duplicates" ]]; then
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && printf '%s\n' "$line" >&2
+      done < <(printf '%s\n' "$duplicates")
+      die "duplicate or colliding issue ids detected"
+    fi
+
+    return 0
+  fi
+
   while IFS= read -r path; do
     base="$(basename "$path")"
     if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\. ]]; then
       kind="${BASH_REMATCH[1]}"
       digits="${BASH_REMATCH[2]}"
-      num=$((10#$digits))
-      issue_id="${kind}${digits}"
-      printf '%s\t%s\n' "$issue_id" "$path" >>"$exact_file"
-      printf '%s:%s\t%s\n' "$kind" "$num" "$issue_id" >>"$bare_file"
-      printf '%s\t%s\n' "$num" "$issue_id" >>"$global_file"
+      touched_exact["${kind}${digits}"]=1
+      touched_numeric["$digits"]=1
     fi
-  done < <(find "$root/issues" -type f -name "*.md" | sort)
+  done < <(check_issue_file_list "$root")
 
-  duplicates="$(
-    awk -F '\t' '
-      { paths[$1] = paths[$1] ? paths[$1] ", " $2 : $2; count[$1]++ }
-      END { for (key in count) if (count[key] > 1) print "exact:" key " -> " paths[key] }
-    ' "$exact_file"
-    awk -F '\t' '
-      { seen[$1, $2] = 1 }
-      END {
-        for (pair in seen) {
-          split(pair, parts, SUBSEP)
-          key = parts[1]
-          id = parts[2]
-          ids[key] = ids[key] ? ids[key] ", " id : id
-          count[key]++
-        }
-        for (key in count) if (count[key] > 1) print "bare:" key " -> " ids[key]
-      }
-    ' "$bare_file"
-  )"
-
-  cross_warnings="$(
-    awk -F '\t' '
-      { seen[$1, $2] = 1 }
-      END {
-        for (pair in seen) {
-          split(pair, parts, SUBSEP)
-          key = parts[1]
-          id = parts[2]
-          ids[key] = ids[key] ? ids[key] ", " id : id
-          count[key]++
-        }
-        for (key in count) if (count[key] > 1) printf "warning: cross-kind numeric id collision: %04d -> %s\n", key, ids[key]
-      }
-    ' "$global_file"
-  )"
-
-  rm -f "$exact_file" "$bare_file" "$global_file"
-
-  if [[ -n "$cross_warnings" ]]; then
-    echo "$cross_warnings" >&2
+  if [[ "${#touched_exact[@]}" -eq 0 ]]; then
+    return 0
   fi
 
-  if [[ -n "$duplicates" ]]; then
-    echo "$duplicates" >&2
+  duplicates="$(mktemp)"
+
+  for kind_key in "${!touched_exact[@]}"; do
+    count="$(find "$root/issues" -maxdepth 1 -type f -name "${kind_key}.*.md" | wc -l | tr -d ' ')"
+    if (( count > 1 )); then
+      printf 'exact:%s -> %s\n' "$kind_key" "$(
+        find "$root/issues" -maxdepth 1 -type f -name "${kind_key}.*.md" | sort | tr '\n' ' ' | sed 's/[[:space:]]*$//'
+      )" >>"$duplicates"
+    fi
+  done
+
+  for num in "${!touched_numeric[@]}"; do
+    ids=()
+    id_count=0
+    while IFS= read -r kind; do
+      if find "$root/issues" -maxdepth 1 -type f -name "${kind}${num}.*.md" -print -quit | grep -q .; then
+        ids+=("${kind}${num}")
+        id_count=$((id_count + 1))
+      fi
+    done < <(printf '%s\n' "tk" "pl" "rs" "rf")
+
+    if (( id_count > 1 )); then
+      warn_line="$num -> $(printf '%s, ' "${ids[@]}" | sed 's/, $//')"
+      warn "cross-kind numeric id collision: ${warn_line}"
+    fi
+  done
+
+  if [[ -s "$duplicates" ]]; then
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && printf '%s\n' "$line" >&2
+    done < "$duplicates"
+    rm -f "$duplicates"
     die "duplicate or colliding issue ids detected"
   fi
+
+  rm -f "$duplicates"
 }
 
 check_legacy_rvw_state() {
@@ -1449,8 +2127,8 @@ check_legacy_rvw_state() {
     die "rvw state is retired; move the document to doi, dne, cand, bkd, or arvd: $file"
   done < <(
     {
-      find "$root/issues" -type f -name '*.rvw.*.md' 2>/dev/null
-      find "$root/docs/reviews" -type f -name '*.rvw.*.md' 2>/dev/null
+      check_issue_file_list "$root" | grep -E '\.rvw\.[^.]+\.md$' 2>/dev/null
+      check_review_file_list "$root" | grep -E '\.rvw\.[^.]+\.md$' 2>/dev/null
     } | sort
   )
 }
@@ -1463,15 +2141,15 @@ check_rp_names() {
 
   while IFS= read -r file; do
     base="$(basename "$file")"
-    if [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
+    if [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?\.md$ ]]; then
       continue
     fi
-    if [[ "$base" =~ \.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]]; then
+    if [[ "$base" =~ \.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?\.md$ ]]; then
       die "unscoped review/audit belongs in aidocs/agent-runs, not docs/reviews: $file"
     fi
-    [[ "$base" =~ ^rp${ID_DIGITS_RE}\.(tdo|doi|dne|bkd|cand|arvd)\.[a-z0-9-]+\.(review-r[0-9]+-[a-z0-9-]+|reply-r[0-9]+-[a-z0-9-]+)\.md$ ]] \
+    [[ "$base" =~ ^rp${ID_DIGITS_RE}\.(tdo|doi|dne|bkd|cand|arvd)\.[a-z0-9-]+\.(review-r[0-9]+-[a-z0-9-]+|reply-r[0-9]+-[a-z0-9-]+)(\.(block|pass|note))?\.md$ ]] \
       || die "invalid review filename: $file"
-  done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort)
+  done < <(check_review_file_list "$root")
 }
 
 check_rv_names() {
@@ -1482,7 +2160,7 @@ check_rv_names() {
 
   while IFS= read -r file; do
     base="$(basename "$file")"
-    [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ ]] \
+    [[ "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?\.md$ ]] \
       || continue
     issue_id="${base%%.*}"
     find_issue_file_anywhere "$root" "$issue_id" >/dev/null
@@ -1490,12 +2168,12 @@ check_rv_names() {
     if [[ -n "$result" && ! "$result" =~ ^(block|pass|note)$ ]]; then
       die "invalid review result in $file: $result"
     fi
-  done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' | sort)
+  done < <(check_review_file_list "$root")
 }
 
 check_progress_names() {
   local root="$1"
-  local file base task_id step_slug progress_state parent_file parent_state doi_tmp step_tmp duplicates duplicate_steps
+  local file base task_id step_slug progress_state parent_file parent_state doi_tmp step_tmp duplicates duplicate_steps mapping_message
 
   [[ -d "$root/docs/progress" ]] || return 0
   doi_tmp="$(mktemp)"
@@ -1503,7 +2181,7 @@ check_progress_names() {
 
   while IFS= read -r file; do
     base="$(basename "$file")"
-    [[ "$base" =~ ^(tk${ID_DIGITS_RE})\.(s[0-9]{2}-[a-z0-9-]+)\.(tdo|doi|dne|bkd)\.md$ ]] \
+  [[ "$base" =~ ^(tk${ID_DIGITS_RE})\.(s[0-9]{2}-[a-z0-9-]+)\.(tdo|doi|dne|bkd|cand|arvd)\.md$ ]] \
       || die "invalid progress filename: $file"
 
     task_id="${BASH_REMATCH[1]}"
@@ -1518,11 +2196,32 @@ check_progress_names() {
       printf '%s\n' "$task_id" >>"$doi_tmp"
     fi
 
-    if [[ "$parent_state" =~ ^(dne|cand|arvd)$ && "$progress_state" != "dne" ]]; then
-      rm -f "$doi_tmp" "$step_tmp"
-      die "closed task has open progress: ${task_id}.${step_slug}.${progress_state}"
-    fi
-  done < <(find "$root/docs/progress" -maxdepth 1 -type f -name '*.md' | sort)
+    case "$parent_state" in
+      tdo)
+        mapping_message="${file} exists while ${task_id} is still tdo; delete progress first and move ${task_id} to doi first"
+        rm -f "$doi_tmp" "$step_tmp"
+        die "$mapping_message"
+        ;;
+      doi)
+        if [[ "$progress_state" != "doi" && "$progress_state" != "dne" ]]; then
+          mapping_message="${file} is ${progress_state} but parent is ${task_id}.doi; expected doi or dne"
+          rm -f "$doi_tmp" "$step_tmp"
+          die "$mapping_message"
+        fi
+        ;;
+      cand|dne|arvd|bkd)
+        if [[ "$progress_state" != "dne" ]]; then
+          mapping_message="${file} is ${progress_state} but parent is ${task_id}.${parent_state}; move progress to dne first"
+          rm -f "$doi_tmp" "$step_tmp"
+          die "$mapping_message"
+        fi
+        ;;
+      *)
+        rm -f "$doi_tmp" "$step_tmp"
+        die "unknown parent state for ${task_id}: ${parent_state}"
+        ;;
+    esac
+  done < <(check_progress_file_list "$root")
 
   duplicates="$(sort "$doi_tmp" | uniq -d || true)"
   duplicate_steps="$(sort "$step_tmp" | uniq -d || true)"
@@ -1536,6 +2235,7 @@ check_progress_names() {
     die "duplicate progress step ids detected"
   fi
 }
+
 
 extract_frontmatter_links() {
   local file="$1"
@@ -1678,11 +2378,38 @@ is_stateful_workflow_reference() {
 find_review_anchor_matches() {
   local root="$1"
   local review_id="$2"
+  local file base
+  local matches
 
-  {
-    find "$root/docs/reviews" -maxdepth 1 -type f -name "${review_id}.*.md" 2>/dev/null
-    find "$root/issues" -maxdepth 1 -type f -name "${review_id}.*.md" 2>/dev/null
-  } | sort
+  if [[ ${#CHECK_REVIEW_ANCHOR_PREFIXES[@]} -gt 0 ]]; then
+    if [[ -n "${CHECK_REVIEW_ANCHOR_PREFIXES[$review_id]+x}" ]]; then
+      echo "$root/${review_id}.md"
+      return 0
+    fi
+    if [[ -f "$root/docs/reviews/${review_id}.md" ]]; then
+      echo "$root/docs/reviews/${review_id}.md"
+      return 0
+    fi
+    if [[ -f "$root/issues/${review_id}.md" ]]; then
+      echo "$root/issues/${review_id}.md"
+      return 0
+    fi
+    return 1
+  fi
+
+  matches="$(
+    while IFS= read -r file; do
+      base="$(basename "$file")"
+      [[ "$base" == "${review_id}."* ]] && printf '%s\n' "$file"
+    done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
+    while IFS= read -r file; do
+      base="$(basename "$file")"
+      [[ "$base" == "${review_id}."* ]] && printf '%s\n' "$file"
+    done < <(find "$root/issues" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
+  )"
+
+  [[ -n "$matches" ]] || return 1
+  printf '%s\n' "$matches"
 }
 
 check_issue_review_links_exist() {
@@ -1708,15 +2435,19 @@ check_issue_review_links_exist() {
         continue
       fi
 
-      if [[ "$raw_target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+$ ]]; then
+      if [[ "$raw_target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?$ ]]; then
         normalized="$root/docs/reviews/${raw_target}.md"
         [[ -f "$normalized" ]] || die "missing rv link target: $file -> $raw_link"
         continue
       fi
 
       if [[ "$raw_target" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+$ ]]; then
-        if ! find "$root/docs/progress" -maxdepth 1 -type f -name "${raw_target}.*.md" 2>/dev/null | grep -q .; then
-          die "missing progress link target: $file -> $raw_link"
+        if [[ ${#CHECK_PROGRESS_SLUGS[@]} -gt 0 ]]; then
+          [[ -n "${CHECK_PROGRESS_SLUGS[$raw_target]+x}" ]] || die "missing progress link target: $file -> $raw_link"
+        else
+          if ! (find "$root/docs/progress" -maxdepth 1 -type f -name "${raw_target}.*.md" | grep -q .); then
+            die "missing progress link target: $file -> $raw_link"
+          fi
         fi
         continue
       fi
@@ -1724,13 +2455,13 @@ check_issue_review_links_exist() {
       normalized="$(normalize_link_target "$root" "$raw_link")"
       base="$(basename "$normalized")"
 
-      if [[ ! "$base" =~ ^rp${ID_DIGITS_RE}\..*\.md$ && ! "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+\.md$ && ! "$base" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd)\.md$ ]]; then
+      if [[ ! "$base" =~ ^rp${ID_DIGITS_RE}\..*\.md$ && ! "$base" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?\.md$ && ! "$base" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+\.(tdo|doi|dne|bkd|cand|arvd)\.md$ ]]; then
         continue
       fi
 
       [[ -f "$normalized" ]] || die "missing review link target: $file -> $raw_link"
     done < <(extract_frontmatter_links "$file")
-  done < <(find "$root/issues" -maxdepth 1 -type f -name '*.md' | sort)
+  done < <(check_issue_file_list "$root")
 }
 
 check_issue_dependencies_exist() {
@@ -1749,14 +2480,18 @@ check_issue_dependencies_exist() {
         || die "issue depends_on itself: $file -> $raw_dep"
       find_issue_file_anywhere "$root" "$dep_id" >/dev/null
     done < <(extract_frontmatter_depends_on "$file")
-  done < <(find "$root/issues" -maxdepth 1 -type f -name '*.md' | sort)
+  done < <(check_issue_file_list "$root")
 }
 
 check_arvd_residue() {
   local root="$1"
   local residue
+  local path base
 
-  residue="$(find "$root/issues" -maxdepth 1 -type f \( -name 'tk*.arvd.*.md' -o -name 'pl*.arvd.*.md' -o -name 'rs*.arvd.*.md' -o -name 'rf*.arvd.*.md' \) | sort)"
+  residue="$(while IFS= read -r path; do
+    base="$(basename "$path")"
+    [[ "$base" =~ ^(tk|pl|rs|rf)[0-9]{4,5}\.arvd\..*\.md$ ]] && printf '%s\n' "$path"
+  done < <(check_issue_file_list "$root" ) || true)"
   if [[ -n "$residue" ]]; then
     echo "$residue" >&2
     die "archived issue residue detected in issues/"
@@ -1766,8 +2501,28 @@ check_arvd_residue() {
 check_legacy_reply_chains() {
   local root="$1"
   local legacy
+  local path base
 
-  legacy="$(find "$root/docs" -type f \( -name 're.*.md' -o -name 're.re.*.md' \) 2>/dev/null | sort || true)"
+  if [[ "$CHECK_SCOPE_FULL" -eq 1 ]]; then
+    legacy="$(find "$root/docs" -type f \( -name 're.*.md' -o -name 're.re.*.md' \) 2>/dev/null | sort || true)"
+  else
+    legacy="$( {
+      while IFS= read -r path; do
+        base="$(basename "$path")"
+        [[ "$base" == re.*.md || "$base" == re.re.*.md ]] && printf '%s\n' "$path"
+      done < <(check_issue_file_list "$root")
+      while IFS= read -r path; do
+        base="$(basename "$path")"
+        [[ "$base" == re.*.md || "$base" == re.re.*.md ]] && printf '%s\n' "$path"
+      done < <(check_review_file_list "$root")
+      while IFS= read -r path; do
+        base="$(basename "$path")"
+        [[ "$base" == re.*.md || "$base" == re.re.*.md ]] && printf '%s\n' "$path"
+      done < <(check_progress_file_list "$root")
+    } | sort
+    )"
+  fi
+
   if [[ -n "$legacy" ]]; then
     echo "$legacy" >&2
     die "legacy reply-chain filenames detected"
@@ -1785,7 +2540,7 @@ check_project_memory_links() {
 
     task_id="$(task_id_from_file "$file")"
     memory_entry_exists "$root" "$task_id" || die "missing project memory anchor for ${task_id}: $(project_memory_file "$root")"
-  done < <(find "$root/issues" -maxdepth 1 -type f -name 'tk*.md' | sort)
+  done < <(check_issue_file_list "$root" | grep -E '/tk[0-9]{4,5}\.md$')
 }
 
 banned_terms_file() {
@@ -1805,7 +2560,7 @@ collect_banned_term_targets() {
       if [[ "$base" =~ \.(tdo|doi|bkd|cand)\. ]]; then
         printf '%s\n' "$file"
       fi
-    done < <(find "$root/issues" -maxdepth 1 -type f -name '*.md' | sort)
+    done < <(check_issue_file_list "$root")
   fi
 }
 
@@ -1907,7 +2662,7 @@ check_doi_staleness() {
     if is_generic_claimant_label "$claimed_by" && [[ -z "$claimed_thread_id" ]]; then
       warn "doi task generic claimant needs claimed_thread_id: ${task_id} -> ${claimed_by}"
     fi
-  done < <(find "$root/issues" -maxdepth 1 -type f -name 'tk*.doi.*.md' | sort)
+  done < <(check_issue_file_list "$root" | grep -E '/tk[0-9]{4,5}\.doi\..*\.md$')
 }
 
 cmd_prune() {
@@ -1967,8 +2722,27 @@ cmd_prune() {
 cmd_check() {
   local current_root="$1"
   local semantic_root="${2:-$1}"
+  shift 2
+
+  local -a explicit_files=()
+
+  while (($# > 0)); do
+    case "$1" in
+      --changed|--files)
+        shift
+        while (($# > 0)); do
+          explicit_files+=("$1")
+          shift
+        done
+        ;;
+      *)
+        die "usage: task.sh check [--changed <file> ...]"
+        ;;
+    esac
+  done
 
   assert_no_truth_edits_in_linked_worktree "$current_root" "check"
+  build_check_file_cache "$current_root" "$semantic_root" "${explicit_files[@]}"
   check_duplicate_issue_ids "$semantic_root"
   check_arvd_residue "$semantic_root"
   check_legacy_rvw_state "$semantic_root"
@@ -1981,6 +2755,7 @@ cmd_check() {
   check_project_memory_links "$semantic_root"
   check_banned_arch_terms "$semantic_root"
   check_doi_staleness "$semantic_root"
+  emit_warning_summary
   echo "ok"
 }
 
@@ -2035,13 +2810,19 @@ main() {
       [[ $# -eq 3 ]] || die "usage: task.sh move <issue-id> <state>"
       cmd_move "$control_root" "$2" "$3"
       ;;
+    batch-close)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -ge 2 && $# -le 3 ]] || die "usage: task.sh batch-close <issue-id> [state]"
+      cmd_batch_close "$control_root" "$2" "${3:-dne}"
+      ;;
     reopen)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      [[ $# -ge 3 ]] || die "usage: task.sh reopen <issue-id> <reason>"
+      [[ $# -ge 2 ]] || die "usage: task.sh reopen <issue-id> [reason] [--from progress <step>]"
       issue_id="$2"
       shift 2
-      cmd_reopen "$control_root" "$issue_id" "$*"
+      cmd_reopen "$control_root" "$issue_id" "$@"
       ;;
     archive)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
@@ -2052,18 +2833,7 @@ main() {
     archive-done)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      case "$#" in
-        1)
-          cmd_archive_done "$control_root" "32"
-          ;;
-        3)
-          [[ "$2" == "--keep" ]] || die "usage: task.sh archive-done [--keep N]"
-          cmd_archive_done "$control_root" "$3"
-          ;;
-        *)
-          die "usage: task.sh archive-done [--keep N]"
-          ;;
-      esac
+      cmd_archive_done "$control_root" "$@"
       ;;
     prune)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
@@ -2074,8 +2844,7 @@ main() {
     check)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      [[ $# -eq 1 ]] || die "usage: task.sh check"
-      cmd_check "$current_root" "$control_root"
+      cmd_check "$current_root" "$control_root" "${@:2}"
       ;;
     orphan-scan)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"

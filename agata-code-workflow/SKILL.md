@@ -40,7 +40,7 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 6. `tk` / `pl` / `rs` / `rf` share one global numeric namespace, including archived issues. Kind is type, not id namespace.
 7. Links use stable anchors such as `tk0001`, `tk0001.rv001-r001-reviewer`, or `tk0001.s01-repro`; never link stateful full filenames.
 8. Review is evidence, not a task state. Do not restore `rvw`.
-9. New review records use `docs/reviews/<issue-id>.rvMMM-rNNN-author.md` and frontmatter `result: block|pass|note`.
+9. New review records use `docs/reviews/<issue-id>.rvMMM-rNNN-author.<outcome>.md` and frontmatter `result: block|pass|note`.
 10. Progress files use `docs/progress/<tk-id>.sNN-<slug>.<state>.md`; progress never decides parent closure.
 11. `refs/project-memory-aaak.md` stores durable historical judgments, not task truth.
 12. `refs/radar.md` stores low-trust observations with triggers, not backlog, review evidence, or memory.
@@ -61,8 +61,9 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 6. If live repro or runtime trace changes diagnosis, stop coding and update the controlling `tk` / `rv` first.
 7. Keep review rounds in `rv`; close only after blockers are fixed or explicitly overruled.
 8. Close code tasks only after implementation is landed on target mainline, verification evidence is written, progress is drained, `task.sh check` passes, and cleanup is ready.
-9. Use `task.sh reopen <id> <reason>` when review, smoke, or user acceptance finds same-task work after `dne`. New scope gets a new `tk`.
-10. After close-out, run `task.sh archive-done --keep 32` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
+9. Use `task.sh reopen <id> [reason] [--from progress <step>]` when review, smoke, or user acceptance finds same-task work after `dne`. Use `--from progress` to roll a step from `dne` to `doi` before reopen.
+10. Use `task.sh batch-close <issue-id> [state]` to close one dependency chain in reverse order.
+11. After close-out, run `task.sh archive-done --keep 32` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
 
 ## Collaboration Discipline (非硬性契约)
 
@@ -70,6 +71,16 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 - Lock and sequencing code before execution: confirm owner, contract edge cases, and state-machine boundaries with the human; AI implements only within the agreed boundary.
 
 ## Bundled Helpers
+
+### 执行前置（强制）
+
+所有 helper 命令必须通过 Bash 执行：
+
+```bash
+bash ./agata-code-workflow/scripts/task.sh check
+```
+
+不要用 `sh` 调起，否则会因 Bash 特性不兼容出现不可读的退出码（例如 133）且不走正常 `error:` 提示。
 
 Use the bundled scripts from this skill directory; do not assume project-local `./scripts/task.sh` exists.
 
@@ -79,16 +90,162 @@ High-frequency commands:
 task.sh new <kind> <board> <slug> [prio]
 task.sh move <issue-id> <state>
 task.sh reopen <issue-id> <reason>
+task.sh reopen <issue-id> [reason] [--from progress <step>]
 task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]
 task.sh progress <task-id> <sNN-slug> [state]
+task.sh batch-close <issue-id> [state]
 task.sh check
+task.sh check --changed <file> ...
 task.sh orphan-scan <base-ref> [filter]
 task.sh prune <task-id> <base-ref>
-task.sh archive-done [--keep N]
+task.sh archive-done [--keep N] [--yes]
 progress_view.py [--project-root <path>] [--no-open]
 ```
 
 Use helper commands for legal renames, id allocation, review/progress file creation, archive cleanup, orphan scans, and validation. If a helper cannot express a clearly legal state-slot rename, manual rename is a helper gap: update the same document, run `task.sh check`, and report the gap.
+
+## New Agent Onboarding for This Skill
+
+Read this section once before the first commit.
+
+5-line quick start (same with README):
+
+```bash
+bash agata-code-workflow/scripts/task.sh check
+bash agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate
+bash agata-code-workflow/scripts/task.sh move tk10061 doi
+bash agata-code-workflow/scripts/task.sh progress tk10061 s01-repro
+bash agata-code-workflow/scripts/task.sh move tk10061 dne
+```
+
+Pre-commit (recommended):
+
+```bash
+cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+```bash
+bash agata-code-workflow/scripts/task.sh check --changed issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep
+```
+
+1. Verify repository entrypoint
+
+```bash
+[[ -f agata-code-workflow/scripts/task.sh ]] || echo "skill scripts missing"
+```
+
+2. Install pre-commit hook from this skill (recommended)
+
+```bash
+mkdir -p .git/hooks
+cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+3. Validate hook path and hook script
+
+```bash
+ls -l .git/hooks/pre-commit
+head -n 5 .git/hooks/pre-commit
+```
+
+4. Baseline contract for pre-commit
+
+```text
+git add ...   -> task.sh check --changed <staged-truth-paths>
+```
+
+5. Quick sanity run
+
+```bash
+git add -N README.md
+git add -N issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep refs/.gitkeep 2>/dev/null || true
+git commit -n -m "chore: check pre-commit wiring" --dry-run
+```
+
+6. If no issues are staged, this hook should return quickly and not block.
+
+## pre-commit Template Semantics
+
+Template location:
+- `agata-code-workflow/templates/pre-commit`
+
+Behavior:
+- collects staged paths via `git diff --cached --name-only -z --diff-filter=ACMR`
+- calls `bash agata-code-workflow/scripts/task.sh check --changed <path1> ...`
+- if the current repo does not contain `agata-code-workflow/scripts/task.sh`, hook exits successfully with no error
+- if changed path list is non-empty but no matching truth doc is included, `task.sh check --changed` falls back to a full scan
+
+Why this design:
+- `pre-commit` should be pre-merge guardrail, not a full repo scanner
+- `task.sh check --changed` avoids re-validating unrelated history when the repo grows large
+- the failure path stays local to changed docs and the current worktree
+
+## pre-commit Fast Verification Checklist (new agent)
+
+Before first real commit, run:
+
+```bash
+task.sh check
+git add issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep refs/.gitkeep 2>/dev/null || true
+task.sh check --changed issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep 2>/dev/null || true
+```
+
+Interpretation:
+- full check passes + staged check passes for sample touched files means hook wiring is available
+- full check fails: fix workflow truth first, keep pre-commit disabled until resolved
+- staged check fails: you likely changed workflow truth out of contract
+
+## pre-commit Troubleshooting
+
+Common issue: pre-commit prints nothing and exits abnormally in this environment.
+
+1. First, inspect hook script with `bash -n .git/hooks/pre-commit`.
+2. Then run manually:
+
+```bash
+bash .git/hooks/pre-commit
+```
+
+3. Then run directly:
+
+```bash
+bash agata-code-workflow/scripts/task.sh check
+bash agata-code-workflow/scripts/task.sh check --changed issues/.gitkeep
+```
+
+4. If still blocked, confirm bash path and repo root:
+
+```bash
+git rev-parse --show-toplevel
+echo "$SHELL"
+```
+
+If the repository uses a dedicated hook path, map it explicitly:
+
+```bash
+git config core.hooksPath
+```
+
+Then ensure `.git/hooks/pre-commit` is replaced by the effective hook path.
+
+### pre-commit 模板
+
+Skill 已提供标准 pre-commit 模板：
+
+- `agata-code-workflow/templates/pre-commit`
+
+安装到仓库（执行一次）：
+
+```bash
+cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+模板行为：
+- 仅对 staged 的 `ACMR` 变更路径调用 `task.sh check --changed <file...>`。
+- 如果不在该技能目录下找不到 `agata-code-workflow/scripts/task.sh`，则跳过，不阻断提交。
 
 ## Minimal Shapes
 
