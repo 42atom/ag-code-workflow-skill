@@ -176,6 +176,7 @@ Behavior:
 - calls `bash agata-code-workflow/scripts/task.sh check --changed <path1> ...`
 - if the current repo does not contain `agata-code-workflow/scripts/task.sh`, hook exits successfully with no error
 - if changed path list is non-empty but no matching truth doc is included, `task.sh check --changed` falls back to a full scan
+- changed `issues/*` files that still carry `态:` in `recap` are rejected by `check --changed` (state stays only in filename)
 
 Why this design:
 - `pre-commit` should be pre-merge guardrail, not a full repo scanner
@@ -254,7 +255,7 @@ Issue frontmatter stays small:
 ```yaml
 owner: user
 assignee: agent
-recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
+recap: "核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO
 accept: TODO

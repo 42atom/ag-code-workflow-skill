@@ -19,6 +19,7 @@ declare -a CHECK_REVIEW_FILES=()
 declare -a CHECK_PROGRESS_FILES=()
 declare -A CHECK_PROGRESS_SLUGS=()
 declare -A CHECK_REVIEW_ANCHOR_PREFIXES=()
+declare -A CHECK_CHANGED_ISSUE_FILES=()
 
 die() {
   if [[ -t 2 ]]; then
@@ -613,6 +614,7 @@ build_check_file_cache() {
   CHECK_PROGRESS_FILES=()
   CHECK_PROGRESS_SLUGS=()
   CHECK_REVIEW_ANCHOR_PREFIXES=()
+  CHECK_CHANGED_ISSUE_FILES=()
   CHECK_SCOPE_FULL=1
   CHECK_SCOPE_MODE="full"
 
@@ -638,6 +640,7 @@ build_check_file_cache() {
 
       if [[ "$abs" == "$current_root/issues/"* || "$abs" == "$semantic_root/issues/"* ]]; then
         CHECK_ISSUE_FILES+=("$abs")
+        CHECK_CHANGED_ISSUE_FILES["$abs"]=1
       elif [[ "$abs" == "$current_root/docs/reviews/"* || "$abs" == "$semantic_root/docs/reviews/"* ]]; then
         CHECK_REVIEW_FILES+=("$abs")
       elif [[ "$abs" == "$current_root/docs/progress/"* || "$abs" == "$semantic_root/docs/progress/"* ]]; then
@@ -1033,7 +1036,7 @@ write_new_issue_doc() {
   local links_block="${6:-'  []'}"
   local recap scope accept
 
-  recap="${recap_or_result:-态:tdo|核:TODO|界:TODO|验:TODO|下:TODO}"
+  recap="${recap_or_result:-核:TODO|界:TODO|验:TODO|下:TODO}"
   scope="${scope_hint:-TODO}"
   accept="${accept_hint:-TODO}"
 
@@ -1290,7 +1293,7 @@ build_recap_from_pl() {
   [[ -n "$scope" ]] || scope="TODO"
   [[ -n "$accept" ]] || accept="TODO"
   [[ -n "$links_summary" ]] || links_summary="TODO"
-  echo "态:tdo|核:${scope}|界:${accept}|验:TODO|下:${links_summary}"
+  echo "核:${scope}|界:${accept}|验:TODO|下:${links_summary}"
 }
 
 cmd_new() {
@@ -2543,6 +2546,23 @@ check_project_memory_links() {
   done < <(check_issue_file_list "$root" | grep -E '/tk[0-9]{4,5}\.md$')
 }
 
+check_issue_recap_no_status_slot() {
+  local root="$1"
+  local file recap
+
+  [[ "$CHECK_SCOPE_FULL" -eq 0 ]] || return 0
+
+  for file in "${CHECK_ISSUE_FILES[@]}"; do
+    [[ -f "$file" ]] || continue
+    [[ "${CHECK_CHANGED_ISSUE_FILES["$file"]+x}" == "x" ]] || continue
+    recap="$(extract_frontmatter_scalar "$file" "recap")"
+    [[ -n "$recap" ]] || continue
+    if [[ "$recap" == *態:* || "$recap" == *"态:"* ]]; then
+      die "issue recap must not include filename-like status slot (态). keep state only in filename: $file"
+    fi
+  done
+}
+
 banned_terms_file() {
   local root="$1"
   local file="$root/refs/task-check-banned-terms.tsv"
@@ -2753,6 +2773,7 @@ cmd_check() {
   check_issue_dependencies_exist "$semantic_root"
   check_legacy_reply_chains "$semantic_root"
   check_project_memory_links "$semantic_root"
+  check_issue_recap_no_status_slot "$semantic_root"
   check_banned_arch_terms "$semantic_root"
   check_doi_staleness "$semantic_root"
   emit_warning_summary
