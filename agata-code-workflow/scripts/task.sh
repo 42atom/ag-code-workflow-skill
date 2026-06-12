@@ -743,6 +743,25 @@ check_progress_file_list() {
   find "$root/docs/progress" -maxdepth 1 -type f -name '*.md' | sort
 }
 
+parse_issue_filename() {
+  local file="$1"
+  local base kind digits id state board slug rest
+
+  base="$(basename "$file")"
+  if [[ "$base" =~ ^(tk|pl|rs|rf)([0-9]{4,5})\.(tdo|doi|dne|bkd|cand|arvd)\.([a-z0-9-]+)\.([a-z0-9-]+)(\.[a-z0-9-]+)?\.md$ ]]; then
+    kind="${BASH_REMATCH[1]}"
+    digits="${BASH_REMATCH[2]}"
+    state="${BASH_REMATCH[3]}"
+    board="${BASH_REMATCH[4]}"
+    slug="${BASH_REMATCH[5]}"
+    rest="${BASH_REMATCH[6]#.}"
+    id="${kind}${digits}"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$state" "$board" "$slug" "$rest"
+    return 0
+  fi
+  return 1
+}
+
 resolve_repo_dir() {
   local root="$1"
   local path="$2"
@@ -2122,6 +2141,23 @@ check_duplicate_issue_ids() {
   rm -f "$duplicates"
 }
 
+check_issue_file_names() {
+  local root="$1"
+  local file issue_spec id state board slug rest
+  local -A seen_ids=()
+
+  while IFS= read -r file; do
+    if ! issue_spec="$(parse_issue_filename "$file")"; then
+      die "invalid issue filename: $file"
+    fi
+    IFS=$'\t' read -r id state board slug rest <<<"$issue_spec"
+    if [[ -n "${seen_ids["$id"]+x}" ]]; then
+      die "duplicate issue id with multiple files: ${id} -> ${seen_ids["$id"]}, ${file}"
+    fi
+    seen_ids["$id"]="$file"
+  done < <(check_issue_file_list "$root")
+}
+
 check_legacy_rvw_state() {
   local root="$1"
   local file
@@ -2563,6 +2599,64 @@ check_issue_recap_no_status_slot() {
   done
 }
 
+check_issue_rename_state_only_pair() {
+  local root="$1"
+  local old_file="$2"
+  local new_file="$3"
+  local old_issue new_issue
+  local old_id old_state new_id new_state
+  local old_board old_slug old_rest
+  local new_board new_slug new_rest
+
+  if ! old_issue="$(parse_issue_filename "$root/$old_file")"; then
+    die "invalid issue source filename in rename: $old_file"
+  fi
+  if ! new_issue="$(parse_issue_filename "$root/$new_file")"; then
+    die "invalid issue destination filename in rename: $new_file"
+  fi
+
+  IFS=$'\t' read -r old_id old_state old_board old_slug old_rest <<<"$old_issue"
+  IFS=$'\t' read -r new_id new_state new_board new_slug new_rest <<<"$new_issue"
+
+  if [[ "$old_id" != "$new_id" ]]; then
+    die "issue rename changed id slot: $old_file -> $new_file; use helper move/alloc for id changes"
+  fi
+  if [[ "$old_state" == "$new_state" ]]; then
+    die "issue rename did not change state slot: $old_file -> $new_file"
+  fi
+  if [[ "$old_board" != "$new_board" || "$old_slug" != "$new_slug" || "$old_rest" != "$new_rest" ]]; then
+    die "issue rename changed non-state parts (board/slug/rest): $old_file -> $new_file; use helper move/alloc for non-state edits"
+  fi
+}
+
+check_dne_issue_no_blocking_review() {
+  local root="$1"
+  local file id state
+
+  while IFS= read -r file; do
+    id="$(task_id_from_file "$file")"
+    state="$(task_state_from_file "$file")"
+    [[ "$state" == "dne" ]] || continue
+    assert_blocking_review_gate "$root" "$id" "dne"
+  done < <(check_issue_file_list "$root")
+}
+
+check_issue_rename_is_state_only() {
+  local root="$1"
+  local status old_file new_file
+
+  while IFS=$'\t' read -r status old_file new_file; do
+    [[ "$status" == R* ]] || continue
+    [[ "$old_file" == issues/* && "$new_file" == issues/* ]] || continue
+    check_issue_rename_state_only_pair "$root" "$old_file" "$new_file"
+  done < <(git -C "$root" diff --name-status --find-renames --diff-filter=R -- 2>/dev/null || true)
+  while IFS=$'\t' read -r status old_file new_file; do
+    [[ "$status" == R* ]] || continue
+    [[ "$old_file" == issues/* && "$new_file" == issues/* ]] || continue
+    check_issue_rename_state_only_pair "$root" "$old_file" "$new_file"
+  done < <(git -C "$root" diff --cached --name-status --find-renames --diff-filter=R -- 2>/dev/null || true)
+}
+
 banned_terms_file() {
   local root="$1"
   local file="$root/refs/task-check-banned-terms.tsv"
@@ -2764,11 +2858,14 @@ cmd_check() {
   assert_no_truth_edits_in_linked_worktree "$current_root" "check"
   build_check_file_cache "$current_root" "$semantic_root" "${explicit_files[@]}"
   check_duplicate_issue_ids "$semantic_root"
+  check_issue_file_names "$semantic_root"
   check_arvd_residue "$semantic_root"
   check_legacy_rvw_state "$semantic_root"
   check_rp_names "$semantic_root"
   check_rv_names "$semantic_root"
   check_progress_names "$semantic_root"
+  check_issue_rename_is_state_only "$semantic_root"
+  check_dne_issue_no_blocking_review "$semantic_root"
   check_issue_review_links_exist "$semantic_root"
   check_issue_dependencies_exist "$semantic_root"
   check_legacy_reply_chains "$semantic_root"

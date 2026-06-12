@@ -177,11 +177,17 @@ Behavior:
 - if the current repo does not contain `agata-code-workflow/scripts/task.sh`, hook exits successfully with no error
 - if changed path list is non-empty but no matching truth doc is included, `task.sh check --changed` falls back to a full scan
 - changed `issues/*` files that still carry `态:` in `recap` are rejected by `check --changed` (state stays only in filename)
+- file renames under `issues/` are treated as state-slot-only by contract
+- `dne` is blocked by any matching blocking review outcome (`.block.md` or `result: block`)
 
 Why this design:
 - `pre-commit` should be pre-merge guardrail, not a full repo scanner
 - `task.sh check --changed` avoids re-validating unrelated history when the repo grows large
 - the failure path stays local to changed docs and the current worktree
+
+Invariant reminders for new agents:
+- filename is truth for state and identity; avoid introducing `态` in `recap` or duplicate state filenames
+- `check` enforces issue-progress mapping consistency, so close checks should fail early at check stage
 
 ## pre-commit Fast Verification Checklist (new agent)
 
