@@ -191,7 +191,7 @@ If source is missing, the note is weak memory, not strong memory.
 
 ## Where AAAK Fits In This Skill
 
-Inside `agata-code-workflow`, AAAK should be used as a dense body block, not as the task truth source.
+Inside `ag-code-workflow`, AAAK should be used as a dense body block, not as the task truth source.
 
 Keep this split:
 

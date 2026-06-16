@@ -1,6 +1,6 @@
 ## Workflow
 
-This project uses the `agata-code-workflow` skill.
+This project uses the `ag-code-workflow` skill.
 
 When work touches any of the following, use that skill:
 

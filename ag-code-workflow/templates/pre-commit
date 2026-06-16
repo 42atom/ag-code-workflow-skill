@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-TASK_SH="$ROOT/agata-code-workflow/scripts/task.sh"
-if [[ ! -f "$TASK_SH" ]]; then
+TASK_SH="$ROOT/ag-code-workflow/scripts/task.sh"
+if [[ ! -f "$TASK_SH" || ! -d "$ROOT/issues" ]]; then
   exit 0
 fi
 

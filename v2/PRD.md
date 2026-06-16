@@ -4,7 +4,7 @@ Status: active v2 product draft, updated 2026-06-13. Supersedes earlier agtask v
 
 ## 1. Introduction
 
-Agata Code Workflow v1 uses the filesystem as the workflow ledger. Issue state lives in filenames, durable context lives in markdown, and helper scripts enforce transitions and checks. This design should stay intact for active users.
+AG Code Workflow v1 uses the filesystem as the workflow ledger. Issue state lives in filenames, durable context lives in markdown, and helper scripts enforce transitions and checks. This design should stay intact for active users.
 
 `agtask` is the v2 product name for a Rust binary that explores a cleaner future grammar and faster workflow operations while preserving the core principle: files remain the source of truth. Rust replaces the shell-heavy helper layer; it must not introduce a database, daemon, server, or second state system as the primary workflow model.
 

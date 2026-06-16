@@ -1,9 +1,9 @@
 ---
-name: agata-code-workflow
+name: ag-code-workflow
 description: "File-based async execution workflow: filename states as truth, worktree execution, and durable issue/review/progress/refs artifacts."
 ---
 
-# Agata Code Workflow
+# AG Code Workflow
 
 ## Position
 
@@ -63,7 +63,7 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 8. Close code tasks only after implementation is landed on target mainline, verification evidence is written, progress is drained, `task.sh check` passes, and cleanup is ready.
 9. Use `task.sh reopen <id> [reason] [--from progress <step>]` when review, smoke, or user acceptance finds same-task work after `dne`. Use `--from progress` to roll a step from `dne` to `doi` before reopen.
 10. Use `task.sh batch-close <issue-id> [state]` to close one dependency chain in reverse order.
-11. After close-out, run `task.sh archive-done --keep 32` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
+11. After close-out, run `task.sh archive-done --keep 32 --yes` for context hygiene; archive location expresses hot/cold storage, not lifecycle.
 
 ## Collaboration Discipline (非硬性契约)
 
@@ -77,7 +77,7 @@ Only `tdo`, `doi`, and `bkd` count as the active execution surface. `dne` is clo
 所有 helper 命令必须通过 Bash 执行：
 
 ```bash
-bash ./agata-code-workflow/scripts/task.sh check
+bash ./ag-code-workflow/scripts/task.sh check
 ```
 
 不要用 `sh` 调起，否则会因 Bash 特性不兼容出现不可读的退出码（例如 133）且不走正常 `error:` 提示。
@@ -111,35 +111,35 @@ Read this section once before the first commit.
 5-line quick start (same with README):
 
 ```bash
-bash agata-code-workflow/scripts/task.sh check
-bash agata-code-workflow/scripts/task.sh new tk runtime add-claim-gate
-bash agata-code-workflow/scripts/task.sh move tk10061 doi
-bash agata-code-workflow/scripts/task.sh progress tk10061 s01-repro
-bash agata-code-workflow/scripts/task.sh move tk10061 dne
+bash ag-code-workflow/scripts/task.sh check
+bash ag-code-workflow/scripts/task.sh new tk runtime add-claim-gate
+bash ag-code-workflow/scripts/task.sh move tk10061 doi
+bash ag-code-workflow/scripts/task.sh progress tk10061 s01-repro
+bash ag-code-workflow/scripts/task.sh move tk10061 dne
 ```
 
 Pre-commit (recommended):
 
 ```bash
-cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+cp ag-code-workflow/templates/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
 ```bash
-bash agata-code-workflow/scripts/task.sh check --changed issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep
+bash ag-code-workflow/scripts/task.sh check --changed issues/.gitkeep docs/reviews/.gitkeep docs/progress/.gitkeep
 ```
 
 1. Verify repository entrypoint
 
 ```bash
-[[ -f agata-code-workflow/scripts/task.sh ]] || echo "skill scripts missing"
+[[ -f ag-code-workflow/scripts/task.sh ]] || echo "skill scripts missing"
 ```
 
 2. Install pre-commit hook from this skill (recommended)
 
 ```bash
 mkdir -p .git/hooks
-cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+cp ag-code-workflow/templates/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
@@ -169,12 +169,12 @@ git commit -n -m "chore: check pre-commit wiring" --dry-run
 ## pre-commit Template Semantics
 
 Template location:
-- `agata-code-workflow/templates/pre-commit`
+- `ag-code-workflow/templates/pre-commit`
 
 Behavior:
 - collects staged paths via `git diff --cached --name-only -z --diff-filter=ACMR`
-- calls `bash agata-code-workflow/scripts/task.sh check --changed <path1> ...`
-- if the current repo does not contain `agata-code-workflow/scripts/task.sh`, hook exits successfully with no error
+- calls `bash ag-code-workflow/scripts/task.sh check --changed <path1> ...`
+- if the current repo does not contain `ag-code-workflow/scripts/task.sh` or root `issues/`, hook exits successfully with no error
 - if changed path list is non-empty but no matching truth doc is included, `task.sh check --changed` falls back to a full scan
 - changed `issues/*` files that still carry `态:` in `recap` are rejected by `check --changed` (state stays only in filename)
 - file renames under `issues/` are treated as state-slot-only by contract
@@ -218,8 +218,8 @@ bash .git/hooks/pre-commit
 3. Then run directly:
 
 ```bash
-bash agata-code-workflow/scripts/task.sh check
-bash agata-code-workflow/scripts/task.sh check --changed issues/.gitkeep
+bash ag-code-workflow/scripts/task.sh check
+bash ag-code-workflow/scripts/task.sh check --changed issues/.gitkeep
 ```
 
 4. If still blocked, confirm bash path and repo root:
@@ -241,18 +241,18 @@ Then ensure `.git/hooks/pre-commit` is replaced by the effective hook path.
 
 Skill 已提供标准 pre-commit 模板：
 
-- `agata-code-workflow/templates/pre-commit`
+- `ag-code-workflow/templates/pre-commit`
 
 安装到仓库（执行一次）：
 
 ```bash
-cp agata-code-workflow/templates/pre-commit .git/hooks/pre-commit
+cp ag-code-workflow/templates/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
 模板行为：
 - 仅对 staged 的 `ACMR` 变更路径调用 `task.sh check --changed <file...>`。
-- 如果不在该技能目录下找不到 `agata-code-workflow/scripts/task.sh`，则跳过，不阻断提交。
+- 如果当前仓库找不到 `ag-code-workflow/scripts/task.sh` 或根目录 `issues/`，则跳过，不阻断提交。
 
 ## Minimal Shapes
 
@@ -291,7 +291,7 @@ Agent names:
 - Interactive new sessions ask for a name or inheritance; do not show `sid`.
 - Write `refs/agent-names.md` only after the user confirms a name.
 - `engine` must be the current runtime; do not copy example values.
-- If a `sid` is known, pass it with `AGATA_CLAIMANT` for `claimed_by`, review author, and commit trailers. Otherwise helpers fall back to `assignee` / `owner`. `name` is for humans.
+- If a `sid` is known, pass it with `AG_CLAIMANT` for `claimed_by`, review author, and commit trailers. Otherwise helpers fall back to `assignee` / `owner`. `name` is for humans.
 - Derive `sid` from thread id when possible; otherwise use timestamp plus short random/local suffix. Never use global counters.
 - No `online` / `offline`; there is no heartbeat.
 

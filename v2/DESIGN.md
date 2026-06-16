@@ -6,7 +6,7 @@ Status: active v2 design draft, updated 2026-06-13. Supersedes earlier agtask v2
 
 The product name is `agtask`.
 
-`agtask` is the v2 product line for a Rust-based, file-native task workflow. It inherits the useful idea from Agata Code Workflow v1: workflow truth belongs in files, not in chat state, databases, dashboards, or generated summaries.
+`agtask` is the v2 product line for a Rust-based, file-native task workflow. It inherits the useful idea from AG Code Workflow v1: workflow truth belongs in files, not in chat state, databases, dashboards, or generated summaries.
 
 The current stage is design planning. Do not start production implementation until the design gates in this file are resolved.
 

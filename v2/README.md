@@ -4,7 +4,7 @@
 
 Status: active v2 entrypoint, updated 2026-06-13. The documents in this directory supersede earlier agtask v2 drafts.
 
-The current production skill remains in `agata-code-workflow/`.
+The current production skill remains in `ag-code-workflow/`.
 
 v2 rules:
 

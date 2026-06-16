@@ -1,6 +1,6 @@
 # Workflow
 
-Use the `agata-code-workflow` skill for file-based task management in this repo.
+Use the `ag-code-workflow` skill for file-based task management in this repo.
 
 Apply it whenever you:
 

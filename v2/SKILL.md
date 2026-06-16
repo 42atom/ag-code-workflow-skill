@@ -1,6 +1,6 @@
 ---
 name: agtask
-description: "Experimental v2 skill for designing and eventually implementing agtask, a Rust-based file-native task workflow. Use when working on agtask v2 design, grammar, CLI contract, examples, Rust implementation planning, or migration boundaries. This skill is isolated under v2/ and must not replace agata-code-workflow v1 until the v2 design gates are complete."
+description: "Experimental v2 skill for designing and eventually implementing agtask, a Rust-based file-native task workflow. Use when working on agtask v2 design, grammar, CLI contract, examples, Rust implementation planning, or migration boundaries. This skill is isolated under v2/ and must not replace ag-code-workflow v1 until the v2 design gates are complete."
 ---
 
 # agtask
@@ -11,7 +11,7 @@ Status: active v2 skill draft, updated 2026-06-13. Supersedes earlier agtask v2 
 
 This is an experimental v2 skill draft.
 
-It lives in `v2/` on purpose. Do not install, publish, or use it as a replacement for `agata-code-workflow/` until the v2 design gates are complete.
+It lives in `v2/` on purpose. Do not install, publish, or use it as a replacement for `ag-code-workflow/` until the v2 design gates are complete.
 
 Current stage:
 
@@ -72,7 +72,7 @@ Routing:
 Keep v1 and v2 separate:
 
 ```text
-agata-code-workflow/ = production v1 skill
+ag-code-workflow/ = production v1 skill
 v2/ = agtask experimental product line
 ```
 

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-progress_view="$repo_root/agata-code-workflow/scripts/progress_view.py"
+progress_view="$repo_root/ag-code-workflow/scripts/progress_view.py"
 
 fail() {
   echo "FAIL: $*" >&2

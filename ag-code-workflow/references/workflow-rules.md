@@ -133,8 +133,8 @@ state：
 - 去重先看 live root 与 memory；只有 direct anchor、回归考古、用户问历史、或根目录加 memory 仍无法判定时，才打开 archive 正文
 - `task.sh new` 只负责唯一发号，不负责语义去重；scope 去重必须由操作者读取真相源后判断
 - `task.sh new` 按 `tk` / `pl` / `rs` / `rf` 共享数字命名空间发号；kind 是类型，不是编号命名空间
-- `task.sh new` 用 `.agata-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
-- `.agata-new-id.lock/owner` 的 `pid` 仍存活才算 busy；pid 已消失的孤儿锁由 helper 清理后重试
+- `task.sh new` 用 `.ag-new-id.lock` 做原子 ID 分配锁；并发看到 busy 就重跑，不手扫 max id
+- `.ag-new-id.lock/owner` 的 `pid` 仍存活才算 busy；pid 已消失的孤儿锁由 helper 清理后重试
 - `task.sh` 是 workflow 底座，不依赖 Python 运行时；文件扫描、排序、frontmatter 小改动用 bash / awk / find / sort
 - 新增 IPC、事件、channel、protocol、projection 或跨边界合同前，必须明确三类 owner：谁定义、谁生产、谁消费；缺任一角色视为计划缺口，不进入实现
 
@@ -147,14 +147,14 @@ state：
 - 禁止在 `links` 写 `tk0001.tdo.*.md`、`tk0001.doi.*.md`、`rp0001.dne.*.md` 或 `tk0001.s01-repro.dne.md`
 - 文件名是瞬时投影；id 才是永久锚点
 - `docs/plan/` 旧链接只作为 legacy 迁移材料容忍，不作为新规则样板
-- 迁移期 `task.sh check` 默认警告状态全名链接；设置 `AGATA_STRICT_STABLE_LINKS=1` 时失败
+- 迁移期 `task.sh check` 默认警告状态全名链接；设置 `AG_STRICT_STABLE_LINKS=1` 时失败
 
 默认 front matter：
 
 ```yaml
 owner: user
 assignee: agent
-recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"
+recap: "核:TODO|界:TODO|验:TODO|下:TODO"
 why: TODO
 scope: TODO
 risk: low
@@ -354,7 +354,7 @@ unblock_action:
 - 用户说“取个新名字”时，只在交互场景从项目 `Pool` 取第一个未绑定过的名字
 - `Pool` 耗尽时不自动造名，继续用 `sid`，提示用户后续补名字
 - 用户指定自定义名时，先查冲突；已存在则在交互场景问继承还是重置，非交互场景只用 `sid`
-- 已知 `sid` 时，通过 `AGATA_CLAIMANT` 让 `claimed_by`、review author、commit trailer 写 `sid`；未传入时 helper 回退到 `assignee` / `owner`
+- 已知 `sid` 时，通过 `AG_CLAIMANT` 让 `claimed_by`、review author、commit trailer 写 `sid`；未传入时 helper 回退到 `assignee` / `owner`
 - `name` 只辅助人读
 - 文件变长时允许人工裁剪或归档旧行，只保留近期有用映射；旧映射由 Git 历史承担审计
 
@@ -555,7 +555,7 @@ review 命名规则：
 - 平行 task worktree 默认双盲；一个 task worktree 不得直接依赖另一个 task worktree 的未落地代码、生成物、本地服务端口或数据库状态
 - 跨 task 交付、协作或 review 邀请，必须先落成控制面可见的共享证据，再由接收方消费；禁止通过跨目录读取另一个 task worktree 走私中间态
 - 复审可在独立 review worktree 中做验证，但 `tk` / `rv` 结论仍回主 checkout 落盘
-- 代码任务收口顺序固定：专属 worktree 完成实现与验证 -> 代码并回目标主线 -> 主单推进到 `dne` -> `task.sh archive-done --keep 32` -> 清理该任务的 worktree 与本地分支
+- 代码任务收口顺序固定：专属 worktree 完成实现与验证 -> 代码并回目标主线 -> 主单推进到 `dne` -> `task.sh archive-done --keep 32 --yes` -> 清理该任务的 worktree 与本地分支
 - `dne` 不表示“代码仍留在 task worktree”；若实现尚未并回目标主线，禁止关单后直接删树
 - 同一 task 续做时复用原 worktree
 - 任务进入 `dne` / `cand` / `arvd` 且已收口后，应移除对应 worktree；`bkd` 可保留 worktree 但冻结，不得混入别的 task
@@ -623,7 +623,7 @@ review 命名规则：
 - `arvd` 是终态，不应残留在 `issues/` 根目录
 - 归档后的任务应位于 `issues/archive/YYYY/`
 - `check` 发现根目录 `{tk,pl,rs,rf}*.arvd.*.md` 时必须失败
-- `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 32`
+- `dne` 是完成态，可在根目录保留最近缓冲；收尾最后一步运行 `task.sh archive-done --keep 32 --yes`
 - `archive-done` 只做物理归档，不把 `.dne.` 改成 `.arvd.`
 - `issues/archive/YYYY/` 已经说明文件是冷历史；不需要再用文件名重复表达“已归档”
 - `task.sh check` 不自动移动 `dne` 文件，最多由操作者显式清理上下文

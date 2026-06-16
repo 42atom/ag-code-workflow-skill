@@ -8,7 +8,7 @@ This document is the implementation contract for the v2 Rust Build Now surface, 
 
 `PRD.md` explains why v2 exists. This file defines what an implementation must parse, print, reject, rename, and generate.
 
-v2 remains isolated from the v1 production skill. Nothing in this directory changes the current `agata-code-workflow/` contract.
+v2 remains isolated from the v1 production skill. Nothing in this directory changes the current `ag-code-workflow/` contract.
 
 ## 2. System Boundary
 

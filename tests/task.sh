@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-task_sh="$repo_root/agata-code-workflow/scripts/task.sh"
+task_sh="$repo_root/ag-code-workflow/scripts/task.sh"
 
 fail() {
   echo "FAIL: $*" >&2
@@ -45,7 +45,7 @@ run_task() {
   set +e
   (
     cd "$project_root"
-    "$task_sh" "$@"
+    bash "$task_sh" "$@"
   ) >"$stdout_file" 2>"$stderr_file"
   task_status=$?
   set -e
@@ -194,10 +194,13 @@ links: []
 EOF
 
 run_task "$project_root" archive-done --keep 3
-assert_eq "$task_status" "0" "archive-done should succeed"
+assert_eq "$task_status" "0" "archive-done preview should succeed"
 archive_year="$(date +%Y)"
 assert_contains "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10001.dne.runtime.done-10001.p1.md" "archive-done should move oldest done task"
 assert_contains "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10003.dne.runtime.done-10003.p1.md" "archive-done should move done docs beyond keep count"
+
+run_task "$project_root" archive-done --keep 3 --yes
+assert_eq "$task_status" "0" "archive-done --yes should succeed"
 [[ -f "$project_root/issues/pl10006.dne.product.done-plan.md" ]] || fail "archive-done should keep highest-id done issue in root"
 [[ -f "$project_root/issues/tk10005.dne.runtime.done-10005.p1.md" ]] || fail "archive-done should keep recent done task in root"
 [[ -f "$project_root/issues/tk10004.dne.runtime.done-10004.p1.md" ]] || fail "archive-done should keep recent done task in root"
@@ -229,7 +232,7 @@ links: []
 EOF
 done
 
-run_task "$project_root" archive-done
+run_task "$project_root" archive-done --yes
 assert_eq "$task_status" "0" "archive-done default should succeed"
 archive_year="$(date +%Y)"
 assert_eq "$task_stdout" "$project_root/issues/archive/${archive_year}/tk10001.dne.runtime.default-buffer-10001.p1.md" "archive-done default should move only the oldest thirty-third done doc"
@@ -814,7 +817,7 @@ links: []
 ---
 EOF
 
-AGATA_STRICT_STABLE_LINKS=1 run_task "$project_root" check
+AG_STRICT_STABLE_LINKS=1 run_task "$project_root" check
 assert_eq "$task_status" "1" "check should reject stateful workflow link targets"
 assert_contains "$task_stderr" "stateful workflow links are forbidden" "check should explain stable id anchor rule"
 
@@ -830,18 +833,18 @@ assignee: agent
 why: review messages should encode parent issue and thread in the filename
 scope: create one issue-scoped rv message
 risk: low
-accept: review command creates docs/reviews/tk10009.rv001-r001-review-runtime.md
+accept: review command creates docs/reviews/tk10009.rv001-r001-review-runtime.note.md
 memory: none
 claimed_at: 2026-04-16T00:00:00Z
 claimed_by: current-runtime
 links:
-  - docs/reviews/tk10009.rv001-r001-review-runtime.md
+  - docs/reviews/tk10009.rv001-r001-review-runtime.note.md
 ---
 EOF
 
 run_task "$project_root" review tk10009 rv001 r001-review-runtime
 assert_eq "$task_status" "0" "review command should create issue-scoped rv docs"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md" "review command should encode task, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.note.md" "review command should encode task, thread, round, author, and result"
 [[ -f "$task_stdout" ]] || fail "review command should create the rv file"
 ! grep -q '^reviewer:' "$task_stdout" || fail "review docs should not include static reviewer"
 grep -q '^result: note$' "$task_stdout" || fail "review docs should default to result note"
@@ -852,16 +855,16 @@ assert_eq "$task_stdout" "ok" "valid rv check should print ok"
 
 run_task "$project_root" find tk10009.rv001-r001-review-runtime
 assert_eq "$task_status" "0" "find should locate issue-scoped rv docs by full review id"
-assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md" "find should resolve full issue-scoped rv ids"
-printf 'r001-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.md"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.note.md" "find should resolve full issue-scoped rv ids"
+printf 'r001-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r001-review-runtime.note.md"
 
 run_task "$project_root" review tk10009 rv001 r002-current-runtime
 assert_eq "$task_status" "0" "review command should create the next message in the same thread"
-printf 'r002-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r002-current-runtime.md"
+printf 'r002-marker\n' >>"$project_root/docs/reviews/tk10009.rv001-r002-current-runtime.note.md"
 
 run_task "$project_root" review tk10009 rv001 r003-reviewer pass
 assert_eq "$task_status" "0" "review command should accept explicit review result"
-grep -q '^result: pass$' "$project_root/docs/reviews/tk10009.rv001-r003-reviewer.md" || fail "review command should write explicit review result"
+grep -q '^result: pass$' "$project_root/docs/reviews/tk10009.rv001-r003-reviewer.pass.md" || fail "review command should write explicit review result"
 
 thread_view="$(cat "$project_root"/docs/reviews/tk10009.rv001-r*.md)"
 assert_contains "$thread_view" "r001-marker" "plain cat should read r001"
@@ -875,16 +878,16 @@ assignee: agent
 why: plans also need pre-implementation review evidence
 scope: create one plan-scoped rv message
 risk: low
-accept: review command creates docs/reviews/pl10010.rv001-r001-reviewer.md
+accept: review command creates docs/reviews/pl10010.rv001-r001-reviewer.note.md
 memory: none
 links:
-  - docs/reviews/pl10010.rv001-r001-reviewer.md
+  - docs/reviews/pl10010.rv001-r001-reviewer.note.md
 ---
 EOF
 
 run_task "$project_root" review pl10010 rv001 r001-reviewer
 assert_eq "$task_status" "0" "review command should support non-task issue parents"
-assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r001-reviewer.md" "review command should encode plan parent, thread, round, and author"
+assert_eq "$task_stdout" "$project_root/docs/reviews/pl10010.rv001-r001-reviewer.note.md" "review command should encode plan parent, thread, round, author, and result"
 
 run_task "$project_root" check
 assert_eq "$task_status" "0" "check should accept valid plan-scoped rv docs"
@@ -1010,19 +1013,19 @@ rm -rf "$project_root"
 
 project_root="$(make_git_project)"
 
-mkdir "$project_root/.agata-new-id.lock"
-write_file "$project_root/.agata-new-id.lock/owner" <<EOF
+mkdir "$project_root/.ag-new-id.lock"
+write_file "$project_root/.ag-new-id.lock/owner" <<EOF
 pid=$$
 created_at=2026-06-04T00:00:00Z
 EOF
 run_task "$project_root" new tk runtime locked-attempt p1
 assert_eq "$task_status" "1" "new should fail while the id allocation lock exists"
 assert_contains "$task_stderr" "new id allocation is busy" "new should explain id allocation lock contention"
-rm -f "$project_root/.agata-new-id.lock/owner"
-rmdir "$project_root/.agata-new-id.lock"
+rm -f "$project_root/.ag-new-id.lock/owner"
+rmdir "$project_root/.ag-new-id.lock"
 
-mkdir "$project_root/.agata-new-id.lock"
-write_file "$project_root/.agata-new-id.lock/owner" <<'EOF'
+mkdir "$project_root/.ag-new-id.lock"
+write_file "$project_root/.ag-new-id.lock/owner" <<'EOF'
 pid=999999
 created_at=2026-06-04T00:00:00Z
 EOF
@@ -1033,10 +1036,10 @@ assert_contains "$task_stderr" "clearing stale new id allocation lock" "new shou
 assert_eq "$task_stdout" "$project_root/issues/tk0001.tdo.runtime.sample-created.p1.md" "new tk should allocate first 4-digit id"
 [[ -f "$task_stdout" ]] || fail "new tk should create the file"
 grep -q "memory: none" "$task_stdout" || fail "new tk should include default memory mode"
-grep -Fqx 'recap: "态:tdo|核:TODO|界:TODO|验:TODO|下:TODO"' "$task_stdout" || fail "new tk should include default recap index"
+grep -Fqx 'recap: "核:TODO|界:TODO|验:TODO|下:TODO"' "$task_stdout" || fail "new tk should include default recap index"
 grep -Fqx 'depends_on: []' "$task_stdout" || fail "new tk should include default dependency list"
 ! grep -q '^reviewer:' "$task_stdout" || fail "new tk should not include static reviewer"
-[[ ! -d "$project_root/.agata-new-id.lock" ]] || fail "new should release the id allocation lock"
+[[ ! -d "$project_root/.ag-new-id.lock" ]] || fail "new should release the id allocation lock"
 
 run_task "$project_root" new pl product sample-plan
 assert_eq "$task_status" "0" "new pl should succeed in shared root checkout"

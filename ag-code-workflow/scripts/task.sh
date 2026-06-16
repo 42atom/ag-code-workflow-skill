@@ -41,7 +41,7 @@ warn() {
   CHECK_WARNING_COUNTS["$key"]=$((count + 1))
   CHECK_WARNING_TOTAL=$((CHECK_WARNING_TOTAL + 1))
 
-  if [[ "${AGATA_SHOW_WARNINGS:-0}" == "1" ]]; then
+  if [[ "${AG_SHOW_WARNINGS:-0}" == "1" ]]; then
     if [[ -t 2 ]]; then
       printf '\033[33m%s\033[0m\n' "$key" >&2
     else
@@ -53,7 +53,7 @@ warn() {
 emit_warning_summary() {
   local key
 
-  [[ "${AGATA_COLLAPSE_WARNINGS:-1}" == "1" ]] || return 0
+  [[ "${AG_COLLAPSE_WARNINGS:-1}" == "1" ]] || return 0
   [[ "$CHECK_WARNING_TOTAL" -eq 0 ]] && return 0
 
   if [[ -t 2 ]]; then
@@ -62,9 +62,10 @@ emit_warning_summary() {
     printf '\nwarning summary (%s total):\n' "$CHECK_WARNING_TOTAL" >&2
   fi
 
-  for key in $(printf '%s\n' "${!CHECK_WARNING_COUNTS[@]}" | sort); do
+  while IFS= read -r key; do
+    [[ -n "$key" ]] || continue
     printf '  %s (x%s)\n' "$key" "${CHECK_WARNING_COUNTS[$key]-0}" >&2
-  done
+  done < <(printf '%s\n' "${!CHECK_WARNING_COUNTS[@]}" | sort)
 }
 
 is_valid_state() {
@@ -160,7 +161,7 @@ clear_stale_new_id_lock() {
     die "new id allocation is busy: ${lock_dir} (pid ${pid})"
   fi
 
-  warn "clearing stale new id allocation lock: ${lock_dir}"
+  echo "warning: clearing stale new id allocation lock: ${lock_dir}" >&2
   rm -f "$lock_dir/owner" 2>/dev/null || true
   rmdir "$lock_dir" 2>/dev/null || die "stale new id allocation lock is not removable: ${lock_dir}"
 }
@@ -168,7 +169,7 @@ clear_stale_new_id_lock() {
 acquire_new_id_lock() {
   local root="$1"
 
-  NEW_ID_LOCK_DIR="$root/.agata-new-id.lock"
+  NEW_ID_LOCK_DIR="$root/.ag-new-id.lock"
   if ! mkdir "$NEW_ID_LOCK_DIR" 2>/dev/null; then
     clear_stale_new_id_lock "$NEW_ID_LOCK_DIR"
     mkdir "$NEW_ID_LOCK_DIR" 2>/dev/null || die "new id allocation is busy: ${NEW_ID_LOCK_DIR}"
@@ -486,14 +487,11 @@ assert_progress_drained_for_close() {
   local root="$1"
   local issue_id="$2"
   local new_state="$3"
-  local file parent_file parent_state progress_state bad_file base step_slug
+  local file progress_state bad_file base step_slug
 
   [[ "$issue_id" =~ ^tk${ID_DIGITS_RE}$ ]] || return 0
   [[ "$new_state" == "dne" || "$new_state" == "cand" || "$new_state" == "arvd" ]] || return 0
   [[ -d "$root/docs/progress" ]] || return 0
-
-  parent_file="$(find_task_file_anywhere "$root" "$issue_id")"
-  parent_state="$(task_state_from_file "$parent_file")"
 
   while IFS= read -r file; do
     base="$(basename "$file")"
@@ -502,24 +500,8 @@ assert_progress_drained_for_close() {
     step_slug="${BASH_REMATCH[2]}"
 
     bad_file="$root/docs/progress/${issue_id}.${step_slug}.${progress_state}.md"
-    if [[ "$parent_state" == "tdo" ]]; then
-      die "${bad_file} exists while ${issue_id} is still tdo; move ${issue_id} to doi first"
-    fi
-    if [[ "$parent_state" == "doi" && "$progress_state" != "doi" && "$progress_state" != "dne" ]]; then
-      die "${bad_file} is ${progress_state} but parent is ${issue_id}.${parent_state}; expected doi or dne, move to dne first"
-    fi
-    if [[ "$parent_state" =~ ^(dne|cand|arvd|bkd)$ && "$progress_state" != "dne" ]]; then
-      die "${bad_file} is ${progress_state} but parent is ${issue_id}.${parent_state}; move it to dne before close"
-    fi
+    [[ "$progress_state" == "dne" ]] || die "open progress must be drained before ${issue_id} can move to ${new_state}: ${bad_file}"
   done < <(find "$root/docs/progress" -maxdepth 1 -type f -name "${issue_id}.*.md" | sort)
-
-  if [[ "$parent_state" == "dne" || "$parent_state" == "cand" || "$parent_state" == "arvd" || "$parent_state" == "bkd" ]]; then
-    return 0
-  fi
-
-  if [[ "$parent_state" == "doi" ]]; then
-    return 0
-  fi
 }
 
 assert_blocking_review_gate() {
@@ -1401,14 +1383,34 @@ cmd_progress() {
   parent_state="$(task_state_from_file "$parent_file")"
   [[ "$step_slug" =~ ^s[0-9]{2}-[a-z0-9-]+$ ]] || die "progress step must look like s01-repro"
 
-  if [[ "$parent_state" == "tdo" || "$parent_state" == "cand" || "$parent_state" == "arvd" || "$parent_state" == "bkd" ]]; then
-    state="dne"
+  if [[ -z "$requested_state" ]]; then
+    case "$parent_state" in
+      tdo)
+        state="tdo"
+        ;;
+      doi)
+        state="doi"
+        ;;
+      dne|cand|arvd|bkd)
+        die "closed task cannot start open progress: ${task_id}.${parent_state}"
+        ;;
+      *)
+        die "unknown parent state for ${task_id}: ${parent_state}"
+        ;;
+    esac
   else
-    state="doi"
+    is_valid_progress_state "$requested_state" || die "progress state must be one of: ${VALID_PROGRESS_STATES}"
+    state="$requested_state"
   fi
 
-  if [[ -n "$requested_state" && "$requested_state" != "$state" ]]; then
-    warn "progress state overridden from ${requested_state} to ${state} for ${task_id}.${step_slug}"
+  if [[ "$parent_state" == "tdo" && "$state" != "tdo" ]]; then
+    die "progress for ${task_id}.${parent_state} must start as tdo"
+  fi
+  if [[ "$parent_state" == "doi" && "$state" != "doi" && "$state" != "dne" ]]; then
+    die "progress for ${task_id}.${parent_state} must start as doi or dne"
+  fi
+  if [[ "$parent_state" =~ ^(dne|cand|arvd|bkd)$ && "$state" != "dne" ]]; then
+    die "closed task cannot start open progress: ${task_id}.${parent_state}"
   fi
 
   file="$(progress_doc_path "$root" "$task_id" "$step_slug" "$state")"
@@ -1491,9 +1493,26 @@ find_doc_file() {
 
   if [[ "$doc_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?$ ]]; then
     doc_id="${doc_id%.md}"
-    path="$root/docs/reviews/${doc_id}.md"
-    [[ -f "$path" ]] || die "document not found for ${doc_id}"
-    printf '%s\n' "$path"
+    if [[ "$doc_id" =~ \.(block|pass|note)$ ]]; then
+      path="$root/docs/reviews/${doc_id}.md"
+      [[ -f "$path" ]] || die "document not found for ${doc_id}"
+      printf '%s\n' "$path"
+      return 0
+    fi
+
+    while IFS= read -r path; do
+      matches+=("$path")
+    done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name "${doc_id}.*.md" 2>/dev/null | sort)
+
+    if [[ "${#matches[@]}" -eq 0 ]]; then
+      die "document not found for ${doc_id}"
+    fi
+    if [[ "${#matches[@]}" -gt 1 ]]; then
+      printf '%s\n' "${matches[@]}" >&2
+      die "multiple review files found for ${doc_id}"
+    fi
+
+    printf '%s\n' "${matches[0]}"
     return 0
   fi
 
@@ -1637,7 +1656,7 @@ resolve_claimed_by() {
   local file="$1"
   local explicit assignee owner
 
-  explicit="${AGATA_CLAIMANT:-}"
+  explicit="${AG_CLAIMANT:-}"
   if [[ -n "$explicit" ]]; then
     printf '%s\n' "$explicit"
     return 0
@@ -1661,7 +1680,7 @@ resolve_claimed_by() {
 resolve_claimed_thread_id() {
   local explicit thread_id
 
-  explicit="${AGATA_CLAIM_THREAD_ID:-}"
+  explicit="${AG_CLAIM_THREAD_ID:-}"
   if [[ -n "$explicit" ]]; then
     printf '%s\n' "$explicit"
     return 0
@@ -2143,10 +2162,14 @@ check_duplicate_issue_ids() {
 
 check_issue_file_names() {
   local root="$1"
-  local file issue_spec id state board slug rest
+  local file base issue_spec id state board slug rest
   local -A seen_ids=()
 
   while IFS= read -r file; do
+    base="$(basename "$file")"
+    if [[ "$base" =~ ^rp${ID_DIGITS_RE}\.(tdo|doi|dne|bkd|cand|arvd)\.[a-z0-9-]+\.(review-r[0-9]+-[a-z0-9-]+|reply-r[0-9]+-[a-z0-9-]+)(\.(block|pass|note))?\.md$ ]]; then
+      continue
+    fi
     if ! issue_spec="$(parse_issue_filename "$file")"; then
       die "invalid issue filename: $file"
     fi
@@ -2166,8 +2189,8 @@ check_legacy_rvw_state() {
     die "rvw state is retired; move the document to doi, dne, cand, bkd, or arvd: $file"
   done < <(
     {
-      check_issue_file_list "$root" | grep -E '\.rvw\.[^.]+\.md$' 2>/dev/null
-      check_review_file_list "$root" | grep -E '\.rvw\.[^.]+\.md$' 2>/dev/null
+      check_issue_file_list "$root" | grep -E '\.rvw\..*\.md$' 2>/dev/null
+      check_review_file_list "$root" | grep -E '\.rvw\..*\.md$' 2>/dev/null
     } | sort
   )
 }
@@ -2237,9 +2260,11 @@ check_progress_names() {
 
     case "$parent_state" in
       tdo)
-        mapping_message="${file} exists while ${task_id} is still tdo; delete progress first and move ${task_id} to doi first"
-        rm -f "$doi_tmp" "$step_tmp"
-        die "$mapping_message"
+        if [[ "$progress_state" != "tdo" ]]; then
+          mapping_message="${file} is ${progress_state} but parent is ${task_id}.tdo; expected tdo"
+          rm -f "$doi_tmp" "$step_tmp"
+          die "$mapping_message"
+        fi
         ;;
       doi)
         if [[ "$progress_state" != "doi" && "$progress_state" != "dne" ]]; then
@@ -2250,7 +2275,7 @@ check_progress_names() {
         ;;
       cand|dne|arvd|bkd)
         if [[ "$progress_state" != "dne" ]]; then
-          mapping_message="${file} is ${progress_state} but parent is ${task_id}.${parent_state}; move progress to dne first"
+          mapping_message="closed task has open progress: ${file} is ${progress_state} but parent is ${task_id}.${parent_state}"
           rm -f "$doi_tmp" "$step_tmp"
           die "$mapping_message"
         fi
@@ -2460,7 +2485,7 @@ check_issue_review_links_exist() {
       raw_target="$(strip_wrapping_quotes "$raw_link")"
 
       if is_stateful_workflow_reference "$raw_target"; then
-        if [[ "${AGATA_STRICT_STABLE_LINKS:-0}" == "1" ]]; then
+        if [[ "${AG_STRICT_STABLE_LINKS:-0}" == "1" ]]; then
           die "stateful workflow links are forbidden; use a stable id anchor: $file -> $raw_link"
         fi
         warn "stateful workflow link should use a stable id anchor: $file -> $raw_link"
@@ -2579,7 +2604,7 @@ check_project_memory_links() {
 
     task_id="$(task_id_from_file "$file")"
     memory_entry_exists "$root" "$task_id" || die "missing project memory anchor for ${task_id}: $(project_memory_file "$root")"
-  done < <(check_issue_file_list "$root" | grep -E '/tk[0-9]{4,5}\.md$')
+  done < <(check_issue_file_list "$root" | grep -E '/tk[0-9]{4,5}\..*\.md$')
 }
 
 check_issue_recap_no_status_slot() {
@@ -2858,9 +2883,9 @@ cmd_check() {
   assert_no_truth_edits_in_linked_worktree "$current_root" "check"
   build_check_file_cache "$current_root" "$semantic_root" "${explicit_files[@]}"
   check_duplicate_issue_ids "$semantic_root"
+  check_legacy_rvw_state "$semantic_root"
   check_issue_file_names "$semantic_root"
   check_arvd_residue "$semantic_root"
-  check_legacy_rvw_state "$semantic_root"
   check_rp_names "$semantic_root"
   check_rv_names "$semantic_root"
   check_progress_names "$semantic_root"
@@ -2890,7 +2915,11 @@ main() {
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -ge 4 && $# -le 5 ]] || die "usage: task.sh new <kind> <board> <slug> [prio]"
-      cmd_new "$control_root" "$2" "$3" "$4" "${5:-}"
+      if [[ $# -eq 5 ]]; then
+        cmd_new "$control_root" "$2" "$3" "$4" "$5"
+      else
+        cmd_new "$control_root" "$2" "$3" "$4"
+      fi
       ;;
     review)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
@@ -2902,7 +2931,7 @@ main() {
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -ge 3 && $# -le 4 ]] || die "usage: task.sh progress <task-id> <sNN-slug> [state]"
-      cmd_progress "$control_root" "$2" "$3" "${4:-tdo}"
+      cmd_progress "$control_root" "$2" "$3" "${4:-}"
       ;;
     ls)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
@@ -2951,7 +2980,7 @@ main() {
     archive-done)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
-      cmd_archive_done "$control_root" "$@"
+      cmd_archive_done "$control_root" "${@:2}"
       ;;
     prune)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
