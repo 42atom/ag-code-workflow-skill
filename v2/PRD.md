@@ -17,6 +17,8 @@ The first implementation target is a research-grade v2 sample and Build Now CLI.
 - Separate truth from generated artifacts: `.v/` and `.v/ctx.md` are disposable and rebuildable; `views/*.md` is deferred.
 - Reduce duplicated state by deriving hot fields from path and filename instead of repeating them in frontmatter.
 - Preserve Unix affordances: stable TSV output, shell-friendly filters, symlink or pointer lenses, and plain markdown.
+- Keep durable workflow files scarce so chat and transient review noise do not become long-term project memory.
+- Leave room for a generated workflow relation index that improves context discovery without becoming truth.
 - Define a staged path from v1 to v2 without forcing current projects to migrate.
 
 ## 3. Non-Goals
@@ -28,6 +30,9 @@ The first implementation target is a research-grade v2 sample and Build Now CLI.
 - No second truth source: generated files must never override `issues/`.
 - No new workflow platform or orchestration layer.
 - No broad state expansion. Review remains evidence unless the v2 spec explicitly proves a better state model.
+- No automatic persistence of chat, nits, or transient review comments.
+- No full code symbol graph, call graph, or CodeGraph replacement inside `agtask`.
+- No dependency on CodeGraph, codedb, or any code-intelligence index.
 
 ## 4. Product Principle
 
@@ -39,10 +44,13 @@ Core rule:
 issues/ = truth
 .v/ = generated lens
 ctx = generated LLM snapshot
+future .v/graph.* = generated workflow relation index
 Rust binary = parser, checker, projector, and safe rename tool
 ```
 
 Generated outputs must be safe to delete at any time. If a generated view disagrees with `issues/`, delete and rebuild the view.
+
+Chat and small correction feedback are ephemeral by default. Files are promoted memory, not a transcript sink. A review file should exist because the feedback changes a durable decision, blocks closure, records a significant rejected path, or preserves reasoning a future agent may need.
 
 ## 5. v2 Ledger Grammar
 
@@ -117,6 +125,8 @@ v2 should keep the successful v1 direction:
 - Progress state should be derived from the parent task where possible.
 - Review block should be visible in the review filename.
 - Blocking review must prevent `dne`.
+- Transient review feedback should not automatically create a file.
+- Decision-grade review evidence should be durable and searchable.
 
 Candidate review filename:
 
@@ -132,6 +142,13 @@ docs/progress/tk1828.s02-verify.md
 ```
 
 `agtask` does not provide a review command in MVP. Review files are produced by business workflow; `agtask` only guards close readiness.
+
+Review levels:
+
+```text
+transient review = chat correction, nit, local fix request; evaporates after fix
+decision review  = blocker, architecture choice, contract change, durable failure lesson; persisted as review evidence
+```
 
 ## 8. CLI Shape
 
@@ -249,6 +266,8 @@ Lens requirements:
 - Never store non-derivable truth.
 - Be gitignored by default.
 - Fail loudly on parse errors instead of silently skipping malformed files.
+
+Future workflow graph indexes may be generated under `.v/` after the core ledger is proven. They are navigation caches for relation discovery, not workflow truth. They must be rebuildable from `issues/`, `docs/reviews/`, and `docs/progress/`.
 
 ## 11. Context Snapshot
 
@@ -496,6 +515,8 @@ Deferred:
 - Pre-commit must be incremental.
 - No hidden service is required.
 - v2 must not mutate v1 projects.
+- Durable files are scarce; chat and transient review are not automatically persisted.
+- Generated graph indexes are disposable navigation, not truth.
 
 ## 19. Rejected Designs
 
@@ -513,6 +534,10 @@ Deferred:
 - `risk` or `memory` as MVP frontmatter keys.
 - `blocks` or `blocked_by` as frontmatter relation truth.
 - In-place v1 migration.
+- Automatic chat-to-file or nit-to-review persistence.
+- Persistent graph index as workflow truth.
+- Whole-code graph indexing or CodeGraph replacement inside `agtask`.
+- Depending on CodeGraph, codedb, or any code-intelligence index for workflow correctness.
 
 ## 20. Execution Plan
 
@@ -640,6 +665,7 @@ Exit criteria:
 
 1. Should v2 support read-only parsing of v1 repos before implementing any v2 mutation?
 2. Should unknown frontmatter keys remain warnings after MVP, or become errors?
+3. What minimal generated workflow graph shape is useful after Build Now without adding a second ledger?
 
 ## 22. Decision Gate
 
@@ -650,3 +676,4 @@ Do not migrate v1 until all are true:
 - `agtask check --changed` is consistently fast in pre-commit scale tests.
 - Error messages are more actionable than v1 helper messages.
 - Migration tooling can run as dry-run, apply, and rollback.
+- Any generated workflow graph can be deleted and rebuilt from file truth.

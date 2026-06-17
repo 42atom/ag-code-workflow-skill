@@ -33,6 +33,8 @@ replace  covered by a smaller mechanism
 | Review command | no `agtask review` | reject | Review is business workflow; agtask only guards `.block.md`. |
 | Review blocker | any matching `.block.md` blocks close | keep | Minimal, file-native close guard. |
 | `pass` review outcome state machine | no latest-outcome logic | reject | Avoids rebuilding review workflow. |
+| Transient review persistence | no automatic file creation | reject | Chat-level nits and local corrections should evaporate after the fix. |
+| Decision-grade review evidence | business workflow creates review evidence | keep | Durable review is for blockers, decisions, reversals, and future reasoning. |
 | Dependency creation at new time | `agtask new --depends-on` | keep | DAG is structural truth. |
 | Dependency edits | `agtask depend add/remove` | keep | Avoids YAML hand-edit for graph truth. |
 | Tags for release/dump | tags field and `.v/tag/` lens | keep | Useful for slices; no mutator yet. |
@@ -50,6 +52,8 @@ replace  covered by a smaller mechanism
 | Stale/recent age | best-effort heuristic | keep | Orientation only; not audit truth. |
 | Archive cold storage | `agtask compact` / `restore` | keep | Hot/cold split matters for growing repos. |
 | Archive as state | no `arvd` state | reject | Archive is storage temperature, not lifecycle state. |
+| Workflow relation graph | future generated `.v/graph.*` index | defer | Useful for context discovery only after the ledger is stable. |
+| Whole-code graph | CodeGraph/codedb as references only | reject | agtask owns workflow truth and must not depend on code-intelligence indexes. |
 | Batch close | no `batch-close` in Build Now | defer | Convenience can misclose; single close first. |
 | SQLite cache | no cache in Build Now | defer | Profile before caching. |
 | Daemon/server/sync | not supported | reject | Violates local file-native scope. |

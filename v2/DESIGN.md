@@ -349,11 +349,15 @@ Decided:
 - `cand` and `arvd` are rejected from the MVP state set.
 - `risk` and `memory` are rejected from MVP frontmatter.
 - `.v/blocked` is generated only by reversing `depends_on`.
+- Durable review files are decision-grade evidence. Transient review feedback stays ephemeral.
+- A workflow graph, if added later, is a generated navigation index under `.v/`, not a workflow truth source.
+- Whole-code graph indexing is out of scope for `agtask`; CodeGraph and codedb are reference samples only, not dependencies.
 
 Open:
 
 - Whether v2 should include read-only v1 parsing before mutation.
 - Whether progress grammar needs owner or timestamp fields later.
+- What minimal generated workflow graph shape is useful after Build Now proves the ledger.
 
 ## 14. Next Design Work
 
@@ -361,6 +365,7 @@ Before coding, resolve:
 
 1. Frontmatter strictness: unknown keys warn forever, or become errors after MVP.
 2. Example coverage: add cycle, no owner, missing acceptance, and illegal move examples.
+3. Future workflow graph index: define nodes, edges, and evidence fields without adding a second ledger.
 
 ## 15. Design Axioms
 
@@ -394,6 +399,18 @@ A7. No hidden service.
 
 `agtask` must not require a daemon, server, watcher, background process, or network service.
 
+A8. No code-intelligence dependency.
+
+`agtask` must not depend on CodeGraph, codedb, or any code-intelligence index. Such tools may inform design, but the workflow ledger must stand alone.
+
+A9. Durable files are scarce.
+
+Chat, nit-level review, and local correction feedback should remain ephemeral. Promote only information that a future agent should still read months later: decisions, rejected alternatives, durable blockers, and failure lessons.
+
+A10. Graph is navigation, not ledger.
+
+Any workflow graph index must be generated under `.v/`, rebuildable from truth files, and safe to delete. A graph index must not store task state, owner, or completion truth as authority.
+
 ## 16. Rejected Designs
 
 Rejected for MVP:
@@ -409,6 +426,9 @@ Rejected for MVP:
 - `risk` or `memory` as MVP frontmatter keys.
 - `blocks` or `blocked_by` as frontmatter relation truth.
 - Root-level permanent `ctx.md`.
+- Automatic persistence of chat or transient review feedback.
+- Persistent graph index as workflow truth.
+- Full code symbol graph or CodeGraph integration in the MVP.
 - Duplicating `id`, `state`, `priority`, `lane`, or `slug` in frontmatter.
 - Secondary binary alias such as `tk`.
 - Full workflow engine with scheduling, milestones, or orchestration.
@@ -454,6 +474,18 @@ review file with .block.md
   -> business side removes or renames .block.md when no longer blocking
 ```
 
+Review promotion flow:
+
+```text
+chat or nit feedback
+  -> agent fixes immediately
+  -> feedback evaporates unless it changes a durable decision
+
+decision-grade feedback
+  -> review evidence file
+  -> future agents can reopen the reasoning
+```
+
 Large repo flow:
 
 ```text
@@ -472,7 +504,9 @@ agtask check for periodic full audit
 - `.v/` can be deleted and regenerated.
 - `ctx` can be regenerated.
 - Generated paths are not accepted as truth inputs to `--changed`.
+- Future `.v/graph.*` indexes can be deleted and regenerated.
 - Path-derived fields are forbidden in frontmatter.
+- Transient review feedback is not workflow truth.
 - `.v/blocked` is generated only by reversing `depends_on`.
 - `move <id> dne` runs close-readiness before renaming.
 - `agtask check` separates errors and warnings.
@@ -528,6 +562,7 @@ Later:
 - `agtask compact`
 - `agtask restore`
 - atomic retype / kind migration
+- generated workflow graph index
 
 Deferred:
 
@@ -537,6 +572,7 @@ Deferred:
 - link command
 - generated `views/*.md`
 - SQLite cache
+- full code graph / CodeGraph integration
 - v1 migration
 - web UI
 - external sync
@@ -674,3 +710,21 @@ Reason: both are useful for projection and release slices, but neither is requir
 Decision: `agtask ls --tsv` exposes `thread_count` and `link_count`, not full thread/link arrays.
 
 Reason: TSV is the Unix projection surface. Heavy values remain in the issue file and are read on demand.
+
+### D021: Durable review is decision-grade
+
+Decision: Review files are for durable review evidence, not every human or agent correction.
+
+Reason: Agent-era review feedback is high-volume. Nits, local naming feedback, missing small tests, and simple type corrections should evaporate after the fix. Persisting all of it turns the file ledger into noise. Durable review should capture decisions, blockers, reversals, and reasoning a future agent may need.
+
+### D022: Workflow graph is generated navigation
+
+Decision: A future workflow graph may exist only as a generated index under `.v/`.
+
+Reason: The project will eventually need fast relation discovery across issues, progress, and reviews. That relation index is navigation, not truth. It must be rebuildable from `issues/`, `docs/reviews/`, and `docs/progress/`, and it must not override filename or frontmatter truth.
+
+### D023: CodeGraph and codedb are references only
+
+Decision: `agtask` does not implement whole-code graph indexing in MVP.
+
+Reason: CodeGraph-style tools and codedb are useful references for symbol relationships, call graphs, code impact analysis, and agent context discovery. `agtask` owns workflow truth and workflow relations. It must not depend on those tools, require them, or treat their indexes as part of the workflow ledger.

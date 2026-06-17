@@ -28,6 +28,13 @@ Generated, disposable outputs:
 .v/ctx.md
 ```
 
+Reserved future generated outputs:
+
+```text
+.v/graph.nodes.tsv
+.v/graph.edges.tsv
+```
+
 The Rust binary may read generated outputs only for cleanup or overwrite decisions. It must not treat them as authoritative workflow state.
 
 ## 3. CLI Binary
@@ -334,6 +341,13 @@ Accepted headings:
 `agtask` does not manage review workflow and does not provide a review command.
 
 It only recognizes review block files as close blockers.
+
+Review persistence boundary:
+
+- Transient review feedback is chat-level correction and is not persisted by `agtask`.
+- Decision-grade review evidence may be persisted by business workflow.
+- `agtask` only treats `.block.md` review evidence as close-blocking.
+- There is no command that turns chat or nit feedback into a review file in MVP.
 
 Blocking review path:
 
@@ -784,6 +798,32 @@ Ordering:
 
 Stale and recent sections are heuristics for orientation, not audit truth. Prefer latest progress/review evidence time when available; issue file mtime is a fallback only.
 
+### Future workflow graph boundary
+
+A future workflow graph index may write generated files under `.v/` only:
+
+```text
+.v/graph.nodes.tsv
+.v/graph.edges.tsv
+```
+
+This is not part of Build Now.
+
+Rules:
+
+- The graph index is navigation only.
+- The graph index must be rebuildable from `issues/`, `docs/reviews/`, and `docs/progress/`.
+- The graph index must not override filename state, owner, dependencies, review blocks, or progress evidence.
+- Generated graph paths are not accepted as truth inputs to `agtask check --changed`.
+- No daemon, watcher, auto-sync process, or hidden service maintains the graph in MVP.
+- Whole-code symbol graphs, call graphs, CodeGraph-style indexing, and codedb-style indexing are references only. `agtask` must not depend on them.
+
+If a future edge format is accepted, each edge must identify its evidence source:
+
+```text
+src_id	edge_type	dst_id	evidence_path	evidence_hash
+```
+
 ## 24. Example Layout
 
 Required example roots:
@@ -844,10 +884,12 @@ Implementation must enforce these invariants:
 - Progress has no independent state slot in MVP.
 - `.v/` can be deleted and regenerated.
 - `ctx` can be regenerated.
+- Future `.v/graph.*` indexes can be deleted and regenerated.
 - Generated paths are not accepted as truth inputs to `--changed`.
 - Path-derived fields are forbidden in frontmatter.
 - `check` separates errors and warnings.
 - `threads` is a deduped participating thread set, not an event log.
+- Transient review feedback is not workflow truth.
 - v2 must not mutate v1 projects.
 
 ## 27. Build Now and Later
