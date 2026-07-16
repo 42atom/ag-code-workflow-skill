@@ -89,6 +89,7 @@ High-frequency commands:
 ```text
 task.sh new <kind> <board> <slug> [prio]
 task.sh move <issue-id> <state>
+task.sh reprio <issue-id> <pN|none>
 task.sh reopen <issue-id> <reason>
 task.sh reopen <issue-id> [reason] [--from progress <step>]
 task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]

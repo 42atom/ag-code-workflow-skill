@@ -85,6 +85,7 @@ bash ag-code-workflow/scripts/task.sh find tk10061.s01-repro
 bash ag-code-workflow/scripts/task.sh show 10061
 bash ag-code-workflow/scripts/task.sh new tk runtime add-claim-gate p1
 bash ag-code-workflow/scripts/task.sh move 10061 doi
+bash ag-code-workflow/scripts/task.sh reprio tk10061 p2
 bash ag-code-workflow/scripts/task.sh move pl10062 doi
 bash ag-code-workflow/scripts/task.sh batch-close pl10062
 bash ag-code-workflow/scripts/task.sh reopen 10061 --from progress s03-verify
@@ -99,6 +100,7 @@ bash ag-code-workflow/scripts/task.sh orphan-scan origin/main
 
 For `task.sh new`, the contract is literal: `<kind> <board> <slug> [--from pl-id] [prio]`.
 `board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
+Use `task.sh reprio <issue-id> <pN|none>` to change or remove priority for active `tdo` / `doi` / `bkd` issues; it only renames the filename priority slot.
 Issue ids are allocated from one global numeric namespace across `tk` / `pl` / `rs` / `rf`. Kind is type, not an id namespace. Existing old numbering is not migrated just to make sequences look tidy.
 Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 `task.sh new` uses an atomic `.ag-new-id.lock` directory while allocating ids. If it reports busy, rerun after the other allocator finishes.

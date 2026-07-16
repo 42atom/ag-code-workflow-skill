@@ -479,6 +479,116 @@ assert_contains "$task_stderr" "invalid state: rvw" "move should explain invalid
 
 rm -rf "$project_root"
 
+######## reprio should change only active issue priority slot
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10030.tdo.runtime.reprio-active.p3.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: priority lives in the filename
+scope: reprio should change only the pN slot
+risk: low
+accept: reprio preserves state board slug and body
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" reprio tk10030 p2
+assert_eq "$task_status" "0" "reprio should accept active issue states"
+assert_eq "$task_stdout" "$project_root/issues/tk10030.tdo.runtime.reprio-active.p2.md" "reprio should change only priority suffix"
+[[ ! -f "$project_root/issues/tk10030.tdo.runtime.reprio-active.p3.md" ]] || fail "reprio should remove old priority path"
+grep -q '^accept: reprio preserves state board slug and body$' "$task_stdout" || fail "reprio should preserve file body"
+
+run_task "$project_root" reprio tk10030 none
+assert_eq "$task_status" "0" "reprio none should remove priority suffix"
+assert_eq "$task_stdout" "$project_root/issues/tk10030.tdo.runtime.reprio-active.md" "reprio none should remove only priority suffix"
+
+rm -rf "$project_root"
+
+######## check should accept legal reprio renames
+
+project_root="$(make_git_project)"
+write_file "$project_root/issues/tk10032.tdo.runtime.reprio-check.p3.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: reprio is a legal filename truth mutation
+scope: prove check accepts priority-only renames
+risk: low
+accept: reprio then check passes
+memory: none
+links: []
+---
+EOF
+(
+  cd "$project_root"
+  git add issues/tk10032.tdo.runtime.reprio-check.p3.md
+  git commit -qm "test: add p3 issue"
+)
+
+run_task "$project_root" reprio tk10032 p2
+assert_eq "$task_status" "0" "reprio should succeed before check"
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept legal reprio rename"
+assert_eq "$task_stdout" "ok" "legal reprio check should print ok"
+
+rm -rf "$project_root"
+
+######## reprio should reject closed issue states
+
+project_root="$(make_project)"
+for state in dne cand arvd; do
+  write_file "$project_root/issues/tk10031.${state}.runtime.reprio-closed.p3.md" <<EOF
+---
+owner: user
+assignee: agent
+why: closed issues should not carry live priority pressure
+scope: reject reprio for ${state}
+risk: low
+accept: reprio rejects closed states
+memory: none
+links: []
+---
+EOF
+  run_task "$project_root" reprio tk10031 p2
+  assert_eq "$task_status" "1" "reprio should reject ${state}"
+  assert_contains "$task_stderr" "reprio requires active state" "reprio should explain closed-state gate"
+  rm -f "$project_root/issues/tk10031.${state}.runtime.reprio-closed.p3.md"
+done
+
+rm -rf "$project_root"
+
+######## check should reject illegal manual state-slot renames
+
+project_root="$(make_git_project)"
+write_file "$project_root/issues/pl10030.cand.runtime.withdrawn-plan.p1.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: cand is withdrawn, not completed
+scope: prove manual issue renames cannot bypass the state machine
+risk: low
+accept: check rejects cand to dne manual rename
+memory: none
+links: []
+---
+EOF
+
+(
+  cd "$project_root"
+  git add issues/pl10030.cand.runtime.withdrawn-plan.p1.md
+  git commit -qm "test: add withdrawn plan"
+  git mv issues/pl10030.cand.runtime.withdrawn-plan.p1.md issues/pl10030.dne.runtime.withdrawn-plan.p1.md
+)
+
+run_task "$project_root" check
+assert_eq "$task_status" "1" "check should reject illegal manual state-slot renames"
+assert_contains "$task_stderr" "illegal transition in issue rename: cand -> dne" "check should keep manual renames inside the state machine"
+
+rm -rf "$project_root"
+
 ######## done tasks should reopen only through explicit reopen command
 
 project_root="$(make_project)"

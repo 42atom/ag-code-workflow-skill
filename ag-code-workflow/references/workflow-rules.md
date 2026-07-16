@@ -544,6 +544,7 @@ review 命名规则：
 - `task.sh check` 例外：只有“当前 worktree 有没有 truth 污染”这一刀留在本地；重复 id、review 约束、memory、staleness 等全局语义仍由共享控制面裁决
 - `task.sh check` 通过只说明工作流语义合法，不说明当前共享控制面上的所有脏改都属于你
 - 状态槽迁移默认走 `task.sh move`；只有 helper 明确表达不了合法 rename 时，才允许手动改同一文件的状态槽
+- 手动状态槽 rename 仍必须满足同一套状态机；`cand -> dne`、`dne -> doi` 这类非法转移不能借 `git mv` 绕过
 - 手动状态槽 rename 后必须立刻跑 `task.sh check`，并在回传里说明这是 helper gap，不把手动路径常态化
 - helper 保持薄，不自动暂存 Git index；Git rename 血统用于诊断，不是工作流真相
 - 同一 task line 的控制面写操作必须串行；不得对同一 task 预发多个 `move`，每次状态落盘后都要重读真相与 gate，再决定下一跳
@@ -671,6 +672,7 @@ action：
 - 不手工在并发 shell 里做 `max(id)+1` 发号
 - `task.sh move <id> <state>` 支持 `tkNNNN` / `plNNNN` / `rsNNNN` / `rfNNNN`，裸数字仍默认 `tkNNNN`
 - `task.sh move <id> doi` 会写入 `claimed_at`、`claimed_by`，以及当前 runtime 能提供时的 `claimed_thread_id`
+- `task.sh reprio <id> <pN|none>` 只允许 `tdo` / `doi` / `bkd`，只修改文件名优先级槽；`none` 表示移除优先级
 - `task.sh reopen <id> <reason>` 只接受当前或已归档的 `dne` issue，写入 `reopened_at` / `reopen_reason`，并重新写入 `claimed_*`
 - `move` 是单步控制面动作，不是流水线；尤其 `dne` / `arvd` 这类带 gate 的状态，必须等上一步成功落盘并重读真相后再推进
 - `task.sh check` 对缺失 `claimed_at` 或长时间未推进的 `doi` 发警告，不自动回滚、不新增旁路锁文件

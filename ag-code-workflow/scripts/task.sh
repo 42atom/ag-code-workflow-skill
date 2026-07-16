@@ -118,6 +118,20 @@ is_valid_kind() {
   return 1
 }
 
+is_valid_priority() {
+  [[ "$1" =~ ^p[0-9]+$ ]]
+}
+
+is_active_issue_state() {
+  case "$1" in
+    tdo|doi|bkd)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
 is_generic_claimant_label() {
   local raw="$1"
 
@@ -398,6 +412,34 @@ rename_task_state() {
   echo "$new_file"
 }
 
+task_basename_with_priority() {
+  local file="$1"
+  local new_prio="$2"
+  local issue id state board slug rest suffix
+
+  issue="$(parse_issue_filename "$file")" || die "invalid issue filename: $file"
+  IFS=$'\t' read -r id state board slug rest <<<"$issue"
+
+  suffix=""
+  if [[ "$new_prio" != "none" ]]; then
+    suffix=".${new_prio}"
+  fi
+
+  printf '%s\n' "${id}.${state}.${board}.${slug}${suffix}.md"
+}
+
+rename_task_priority() {
+  local file="$1"
+  local new_prio="$2"
+  local dir new_file
+
+  dir="$(dirname "$file")"
+  new_file="${dir}/$(task_basename_with_priority "$file" "$new_prio")"
+
+  mv "$file" "$new_file"
+  echo "$new_file"
+}
+
 can_transition() {
   local from="$1"
   local to="$2"
@@ -557,6 +599,7 @@ usage:
   task.sh find <id>
   task.sh show <task-id>
   task.sh move <issue-id> <state>
+  task.sh reprio <issue-id> <pN|none>
   task.sh reopen <issue-id> [reason] [--from progress <step>]
   task.sh batch-close <issue-id> [state]
   task.sh archive <task-id>
@@ -1712,6 +1755,35 @@ cmd_move() {
   fi
 }
 
+cmd_reprio() {
+  local root="$1"
+  local issue_id="$2"
+  local new_prio="$3"
+  local file issue state old_prio new_file
+
+  [[ "$new_prio" == "none" ]] || is_valid_priority "$new_prio" || die "prio must look like p0 / p1 / p2, or none"
+
+  assert_control_plane_checkout "$root" "reprio"
+
+  issue_id="$(normalize_issue_id "$issue_id")"
+  file="$(find_issue_file "$root" "$issue_id")"
+  issue="$(parse_issue_filename "$file")" || die "invalid issue filename: $file"
+  IFS=$'\t' read -r _ state _ _ old_prio <<<"$issue"
+
+  is_active_issue_state "$state" || die "reprio requires active state tdo/doi/bkd: ${state}"
+
+  if [[ "$new_prio" == "none" ]]; then
+    [[ -n "$old_prio" ]] || die "issue already has no priority"
+  else
+    [[ "$old_prio" != "$new_prio" ]] || die "issue already has priority ${new_prio}"
+  fi
+
+  new_file="$(dirname "$file")/$(task_basename_with_priority "$file" "$new_prio")"
+  [[ ! -e "$new_file" ]] || die "reprio target already exists: ${new_file}"
+
+  rename_task_priority "$file" "$new_prio"
+}
+
 move_issue_state() {
   local root="$1"
   local issue_id="$2"
@@ -2646,12 +2718,26 @@ check_issue_rename_state_only_pair() {
   if [[ "$old_id" != "$new_id" ]]; then
     die "issue rename changed id slot: $old_file -> $new_file; use helper move/alloc for id changes"
   fi
-  if [[ "$old_state" == "$new_state" ]]; then
-    die "issue rename did not change state slot: $old_file -> $new_file"
+
+  if [[ "$old_state" != "$new_state" ]]; then
+    if [[ "$old_board" != "$new_board" || "$old_slug" != "$new_slug" || "$old_rest" != "$new_rest" ]]; then
+      die "issue rename changed non-state parts (board/slug/rest): $old_file -> $new_file; use helper move/alloc for non-state edits"
+    fi
+    can_transition "$old_state" "$new_state" || die "illegal transition in issue rename: ${old_state} -> ${new_state}; use helper move/reopen when legal"
+    return 0
   fi
-  if [[ "$old_board" != "$new_board" || "$old_slug" != "$new_slug" || "$old_rest" != "$new_rest" ]]; then
-    die "issue rename changed non-state parts (board/slug/rest): $old_file -> $new_file; use helper move/alloc for non-state edits"
+
+  if [[ "$old_board" != "$new_board" || "$old_slug" != "$new_slug" ]]; then
+    die "issue rename changed non-priority parts (board/slug): $old_file -> $new_file; use helper move/alloc for non-priority edits"
   fi
+  if [[ "$old_rest" != "$new_rest" ]]; then
+    is_active_issue_state "$old_state" || die "issue priority rename requires active state tdo/doi/bkd: $old_file -> $new_file"
+    [[ -z "$old_rest" || "$old_rest" =~ ^p[0-9]+$ ]] || die "issue priority slot must look like p0 / p1 / p2 or be absent: $old_file"
+    [[ -z "$new_rest" || "$new_rest" =~ ^p[0-9]+$ ]] || die "issue priority slot must look like p0 / p1 / p2 or be absent: $new_file"
+    return 0
+  fi
+
+  die "issue rename did not change state or priority slot: $old_file -> $new_file"
 }
 
 check_dne_issue_no_blocking_review() {
@@ -2956,6 +3042,12 @@ main() {
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -eq 3 ]] || die "usage: task.sh move <issue-id> <state>"
       cmd_move "$control_root" "$2" "$3"
+      ;;
+    reprio)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -eq 3 ]] || die "usage: task.sh reprio <issue-id> <pN|none>"
+      cmd_reprio "$control_root" "$2" "$3"
       ;;
     batch-close)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
