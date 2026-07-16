@@ -536,6 +536,44 @@ assert_eq "$task_stdout" "ok" "legal reprio check should print ok"
 
 rm -rf "$project_root"
 
+######## check should resolve stable review anchors through outcome suffixes
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10033.dne.runtime.review-stable-anchor.p2.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: review links use stable anchors without outcome suffix
+scope: prove stable review anchors resolve pass files
+risk: low
+accept: check accepts tk.rv-r-author when disk file is tk.rv-r-author.pass.md
+memory: none
+links:
+  - tk10033.rv001-r001-codex
+---
+EOF
+write_file "$project_root/docs/reviews/tk10033.rv001-r001-codex.pass.md" <<'EOF'
+---
+owner: user
+assignee: agent
+result: pass
+why: pass outcome lives in filename, not in links
+scope: stable anchor resolution
+risk: low
+links: [tk10033]
+---
+EOF
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept stable review anchor pointing at pass outcome file"
+assert_eq "$task_stdout" "ok" "stable review anchor full check should print ok"
+
+run_task "$project_root" check --changed issues/tk10033.dne.runtime.review-stable-anchor.p2.md
+assert_eq "$task_status" "0" "changed check should accept stable review anchor pointing at pass outcome file"
+assert_eq "$task_stdout" "ok" "stable review anchor changed check should print ok"
+
+rm -rf "$project_root"
+
 ######## reprio should reject closed issue states
 
 project_root="$(make_project)"

@@ -2517,26 +2517,27 @@ find_review_anchor_matches() {
   local file base
   local matches
 
-  if [[ ${#CHECK_REVIEW_ANCHOR_PREFIXES[@]} -gt 0 ]]; then
-    if [[ -n "${CHECK_REVIEW_ANCHOR_PREFIXES[$review_id]+x}" ]]; then
-      echo "$root/${review_id}.md"
-      return 0
-    fi
-    if [[ -f "$root/docs/reviews/${review_id}.md" ]]; then
-      echo "$root/docs/reviews/${review_id}.md"
-      return 0
-    fi
-    if [[ -f "$root/issues/${review_id}.md" ]]; then
-      echo "$root/issues/${review_id}.md"
-      return 0
-    fi
-    return 1
+  if [[ -f "$root/docs/reviews/${review_id}.md" ]]; then
+    echo "$root/docs/reviews/${review_id}.md"
+    return 0
+  fi
+  if [[ -f "$root/issues/${review_id}.md" ]]; then
+    echo "$root/issues/${review_id}.md"
+    return 0
   fi
 
   matches="$(
     while IFS= read -r file; do
       base="$(basename "$file")"
-      [[ "$base" == "${review_id}."* ]] && printf '%s\n' "$file"
+      if [[ "$review_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+$ ]]; then
+        case "$base" in
+          "${review_id}.block.md"|"${review_id}.pass.md"|"${review_id}.note.md")
+            printf '%s\n' "$file"
+            ;;
+        esac
+      else
+        [[ "$base" == "${review_id}."* ]] && printf '%s\n' "$file"
+      fi
     done < <(find "$root/docs/reviews" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
     while IFS= read -r file; do
       base="$(basename "$file")"
@@ -2550,7 +2551,7 @@ find_review_anchor_matches() {
 
 check_issue_review_links_exist() {
   local root="$1"
-  local file raw_link raw_target normalized base
+  local file raw_link raw_target normalized base matches match_count
 
   while IFS= read -r file; do
     while IFS= read -r raw_link; do
@@ -2572,8 +2573,13 @@ check_issue_review_links_exist() {
       fi
 
       if [[ "$raw_target" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?$ ]]; then
-        normalized="$root/docs/reviews/${raw_target}.md"
-        [[ -f "$normalized" ]] || die "missing rv link target: $file -> $raw_link"
+        matches="$(find_review_anchor_matches "$root" "$raw_target" || true)"
+        [[ -n "$matches" ]] || die "missing rv link target: $file -> $raw_link"
+        match_count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')"
+        if [[ "$match_count" != "1" ]]; then
+          printf '%s\n' "$matches" >&2
+          die "multiple rv link targets: $file -> $raw_link"
+        fi
         continue
       fi
 
