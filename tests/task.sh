@@ -574,6 +574,51 @@ assert_eq "$task_stdout" "ok" "stable review anchor changed check should print o
 
 rm -rf "$project_root"
 
+######## batch-close should close dependency consumers without nameref warnings
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10034.doi.runtime.batch-close-root.p2.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: batch close should close a root and its dependent consumers
+scope: root issue
+risk: low
+accept: batch-close closes child before root
+memory: none
+depends_on: []
+links: []
+---
+EOF
+write_file "$project_root/issues/tk10035.doi.runtime.batch-close-child.p2.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: child depends on root
+scope: dependent issue
+risk: low
+accept: batch-close includes dependent issue
+memory: none
+depends_on:
+  - tk10034
+links: []
+---
+EOF
+
+run_task "$project_root" batch-close tk10034 dne
+assert_eq "$task_status" "0" "batch-close should not trip Bash nameref recursion"
+assert_eq "$task_stderr" "" "batch-close should not emit circular nameref warnings"
+assert_eq "$task_stdout" "$project_root/issues/tk10035.dne.runtime.batch-close-child.p2.md
+$project_root/issues/tk10034.dne.runtime.batch-close-root.p2.md" "batch-close should close dependents before root"
+[[ -f "$project_root/issues/tk10035.dne.runtime.batch-close-child.p2.md" ]] || fail "batch-close should close dependent"
+[[ -f "$project_root/issues/tk10034.dne.runtime.batch-close-root.p2.md" ]] || fail "batch-close should close root"
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "batch-close result should pass workflow check"
+assert_eq "$task_stdout" "ok" "batch-close check should print ok"
+
+rm -rf "$project_root"
+
 ######## reprio should reject closed issue states
 
 project_root="$(make_project)"

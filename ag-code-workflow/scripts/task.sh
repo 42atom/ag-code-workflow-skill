@@ -1838,19 +1838,21 @@ find_issue_file_by_depends_on() {
 collect_batch_close_ids() {
   local root="$1"
   local issue_id="$2"
-  local -n seen="$3"
-  local -n order="$4"
+  local seen_name="$3"
+  local order_name="$4"
+  local -n seen_ref="$seen_name"
+  local -n order_ref="$order_name"
   local file dep_id
 
-  [[ -n "${seen["$issue_id"]+x}" ]] && return 0
-  seen["$issue_id"]=1
+  [[ -n "${seen_ref["$issue_id"]+x}" ]] && return 0
+  seen_ref["$issue_id"]=1
 
   while IFS= read -r file; do
     dep_id="$(task_id_from_file "$file")"
-    collect_batch_close_ids "$root" "$dep_id" seen order
+    collect_batch_close_ids "$root" "$dep_id" "$seen_name" "$order_name"
   done < <(find_issue_file_by_depends_on "$root" "$issue_id")
 
-  order+=("$issue_id")
+  order_ref+=("$issue_id")
 }
 
 cmd_batch_close() {
