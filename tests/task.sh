@@ -370,6 +370,43 @@ assert_contains "$task_stderr" "multiple doi progress steps" "check should expla
 
 rm -rf "$project_root"
 
+######## progress-move should close existing progress through helper
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10042.tdo.runtime.progress-move.p1.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: progress state should have a legal helper entry
+scope: validate progress-move helper
+risk: low
+accept: progress-move closes the progress before parent close
+memory: none
+links: []
+---
+EOF
+
+run_task "$project_root" progress tk10042 s01-impl
+assert_eq "$task_status" "0" "progress should create initial tdo step"
+run_task "$project_root" move tk10042 doi
+assert_eq "$task_status" "0" "parent should move to doi"
+
+run_task "$project_root" progress-move tk10042.s01-impl doi
+assert_eq "$task_status" "0" "progress-move should move tdo progress to doi under doi parent"
+assert_eq "$task_stdout" "$project_root/docs/progress/tk10042.s01-impl.doi.md" "progress-move should print doi progress path"
+
+run_task "$project_root" progress-move tk10042.s01-impl dne
+assert_eq "$task_status" "0" "progress-move should close doi progress"
+assert_eq "$task_stdout" "$project_root/docs/progress/tk10042.s01-impl.dne.md" "progress-move should print dne progress path"
+
+run_task "$project_root" move tk10042 dne
+assert_eq "$task_status" "0" "parent close should pass after progress is drained"
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should accept helper-closed progress"
+assert_eq "$task_stdout" "ok" "helper-closed progress should pass"
+
+rm -rf "$project_root"
+
 ######## closed tasks cannot keep open progress
 
 project_root="$(make_project)"
@@ -1096,6 +1133,50 @@ assert_contains "$task_stderr" "review round must look like r001-author" "review
 run_task "$project_root" review tk10009 rv001 r004-author maybe
 assert_eq "$task_status" "1" "review command should reject invalid result"
 assert_contains "$task_stderr" "review result must be block, pass, or note" "review should explain result shape"
+
+rm -rf "$project_root"
+
+######## review-result should unblock close through helper
+
+project_root="$(make_project)"
+write_file "$project_root/issues/tk10012.doi.runtime.review-result-gate.p1.md" <<'EOF'
+---
+owner: user
+assignee: agent
+why: fixed blocking review needs a legal outcome-slot update
+scope: change one review result from block to note
+risk: low
+accept: review-result updates filename and frontmatter so parent close can pass
+memory: none
+claimed_at: 2026-04-16T00:00:00Z
+claimed_by: current-runtime
+links:
+  - tk10012.rv001-r001-codex
+---
+EOF
+
+run_task "$project_root" review tk10012 rv001 r001-codex block
+assert_eq "$task_status" "0" "review command should create blocking review evidence"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10012.rv001-r001-codex.block.md" "blocking review should use block outcome slot"
+
+run_task "$project_root" move tk10012 dne
+assert_eq "$task_status" "1" "blocking review should prevent parent close"
+assert_contains "$task_stderr" "blocks tk10012 from dne" "move should explain blocking review gate"
+
+run_task "$project_root" review-result tk10012.rv001-r001-codex note
+assert_eq "$task_status" "0" "review-result should change a fixed blocker to note"
+assert_eq "$task_stdout" "$project_root/docs/reviews/tk10012.rv001-r001-codex.note.md" "review-result should print new review path"
+[[ ! -f "$project_root/docs/reviews/tk10012.rv001-r001-codex.block.md" ]] || fail "review-result should remove old block outcome path"
+[[ -f "$project_root/docs/reviews/tk10012.rv001-r001-codex.note.md" ]] || fail "review-result should create note outcome path"
+grep -q '^result: note$' "$project_root/docs/reviews/tk10012.rv001-r001-codex.note.md" || fail "review-result should sync frontmatter result"
+
+run_task "$project_root" move tk10012 dne
+assert_eq "$task_status" "0" "parent close should pass after blocking review is resolved"
+assert_eq "$task_stdout" "$project_root/issues/tk10012.dne.runtime.review-result-gate.p1.md" "move should print closed parent issue path"
+
+run_task "$project_root" check
+assert_eq "$task_status" "0" "check should pass after review-result unblocks close"
+assert_eq "$task_stdout" "ok" "review-result close check should print ok"
 
 rm -rf "$project_root"
 

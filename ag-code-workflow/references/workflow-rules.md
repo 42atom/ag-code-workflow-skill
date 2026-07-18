@@ -667,7 +667,9 @@ action：
 
 - 新建 `tk` / `pl` / `rs` / `rf` 时，优先走 `task.sh new`，由共享控制面按全局数字命名空间分配下一个可用 id
 - 新建 `rv` 时走 `task.sh review <issue-id> <rvNNN> <rNNN-author>`，不走全局发号
+- review 结果槽变更走 `task.sh review-result <issue-id.rvNNN-rNNN-author> <block|pass|note>`，只改 outcome 槽并同步 frontmatter `result`
 - 新建 progress 时走 `task.sh progress <task-id> <sNN-slug> [state]`
+- progress 状态槽变更走 `task.sh progress-move <tk-id.sNN-slug> <state>`，不改父任务状态
 - `task.sh new` / `task.sh review` / `task.sh progress` 前必须先读相关 `pl` / `rs` / `tk` / `rv` / progress 真相源，确认当前 scope 没有被已有任务覆盖
 - 不手工在并发 shell 里做 `max(id)+1` 发号
 - `task.sh move <id> <state>` 支持 `tkNNNN` / `plNNNN` / `rsNNNN` / `rfNNNN`，裸数字仍默认 `tkNNNN`

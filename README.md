@@ -79,7 +79,9 @@ Common commands:
 ```bash
 bash ag-code-workflow/scripts/task.sh ls [state]
 bash ag-code-workflow/scripts/task.sh review tk10061 rv001 r001-review-runtime
+bash ag-code-workflow/scripts/task.sh review-result tk10061.rv001-r001-review-runtime note
 bash ag-code-workflow/scripts/task.sh progress tk10061 s01-repro
+bash ag-code-workflow/scripts/task.sh progress-move tk10061.s01-repro dne
 bash ag-code-workflow/scripts/task.sh find tk10061.rv001-r001-review-runtime
 bash ag-code-workflow/scripts/task.sh find tk10061.s01-repro
 bash ag-code-workflow/scripts/task.sh show 10061
@@ -101,10 +103,11 @@ bash ag-code-workflow/scripts/task.sh orphan-scan origin/main
 For `task.sh new`, the contract is literal: `<kind> <board> <slug> [--from pl-id] [prio]`.
 `board` is the third filename slot, not the state slot. New `pl` / `rs` / `rf` / `tk` docs start as `tdo`. New review exchange docs use `task.sh review <issue-id> <rvNNN> <rNNN-author>`.
 Use `task.sh reprio <issue-id> <pN|none>` to change or remove priority for active `tdo` / `doi` / `bkd` issues; it only renames the filename priority slot.
+Use `task.sh review-result <issue-id.rvNNN-rNNN-author> <block|pass|note>` to change a review outcome; it renames the outcome slot and syncs frontmatter `result`.
 Issue ids are allocated from one global numeric namespace across `tk` / `pl` / `rs` / `rf`. Kind is type, not an id namespace. Existing old numbering is not migrated just to make sequences look tidy.
 Review threads are stored as one immutable message per file. Read a thread with plain `cat docs/reviews/<issue-id>.rvNNN-r*.md`; round ids are zero-padded for this.
 `task.sh new` uses an atomic `.ag-new-id.lock` directory while allocating ids. If it reports busy, rerun after the other allocator finishes.
-Execution workpad steps use `task.sh progress <task-id> <sNN-slug> [state]` and land under `docs/progress/`. Their state is step state only; parent task closure remains in `issues/`.
+Execution workpad steps use `task.sh progress <task-id> <sNN-slug> [state]` and land under `docs/progress/`. Use `task.sh progress-move <task-id.sNN-slug> <state>` to change an existing step state. Their state is step state only; parent task closure remains in `issues/`.
 For state-slot changes, use `task.sh move` first. Manual rename is only a helper-gap fallback for a clearly legal same-file state change; run `task.sh check` immediately and report the helper gap.
 Links must use stable anchors such as `tk0001`, `rp0001`, `tk0001.rv001-r001-reviewer`, or `tk0001.s01-repro`; never link stateful full filenames such as `tk0001.tdo.*.md`.
 During migration, `task.sh check` warns on old stateful links by default. Use `AG_STRICT_STABLE_LINKS=1 task.sh check` to turn the warning into a failure.

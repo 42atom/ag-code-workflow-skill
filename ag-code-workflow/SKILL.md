@@ -93,7 +93,9 @@ task.sh reprio <issue-id> <pN|none>
 task.sh reopen <issue-id> <reason>
 task.sh reopen <issue-id> [reason] [--from progress <step>]
 task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]
+task.sh review-result <issue-id.rvNNN-rNNN-author> <block|pass|note>
 task.sh progress <task-id> <sNN-slug> [state]
+task.sh progress-move <task-id.sNN-slug> <state>
 task.sh batch-close <issue-id> [state]
 task.sh check
 task.sh check --changed <file> ...

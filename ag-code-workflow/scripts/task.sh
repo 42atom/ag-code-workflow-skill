@@ -108,6 +108,16 @@ is_valid_memory_mode() {
   return 1
 }
 
+is_valid_review_result() {
+  local needle="$1" result
+  for result in $VALID_REVIEW_RESULTS; do
+    if [[ "$result" == "$needle" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 is_valid_kind() {
   local needle="$1"
   for kind in $VALID_KINDS; do
@@ -440,6 +450,57 @@ rename_task_priority() {
   echo "$new_file"
 }
 
+progress_basename_with_state() {
+  local file="$1"
+  local new_state="$2"
+  local base task_id step_slug
+
+  base="$(basename "$file")"
+  [[ "$base" =~ ^(tk${ID_DIGITS_RE})\.(s[0-9]{2}-[a-z0-9-]+)\.(tdo|doi|dne|bkd|cand|arvd)\.md$ ]] \
+    || die "invalid progress filename: $file"
+  task_id="${BASH_REMATCH[1]}"
+  step_slug="${BASH_REMATCH[2]}"
+  printf '%s\n' "${task_id}.${step_slug}.${new_state}.md"
+}
+
+rename_progress_state() {
+  local file="$1"
+  local new_state="$2"
+  local dir new_file
+
+  dir="$(dirname "$file")"
+  new_file="${dir}/$(progress_basename_with_state "$file" "$new_state")"
+
+  mv "$file" "$new_file"
+  echo "$new_file"
+}
+
+review_basename_with_result() {
+  local file="$1"
+  local new_result="$2"
+  local base
+
+  base="$(basename "$file")"
+  if [[ "$base" =~ ^((tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+)(\.(block|pass|note))?\.md$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}.${new_result}.md"
+    return 0
+  fi
+
+  die "invalid review filename: $file"
+}
+
+rename_review_result() {
+  local file="$1"
+  local new_result="$2"
+  local dir new_file
+
+  dir="$(dirname "$file")"
+  new_file="${dir}/$(review_basename_with_result "$file" "$new_result")"
+
+  mv "$file" "$new_file"
+  echo "$new_file"
+}
+
 can_transition() {
   local from="$1"
   local to="$2"
@@ -594,7 +655,9 @@ print_usage() {
 usage:
   task.sh new <kind> <board> <slug> [--from pl-id] [prio]
   task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]
+  task.sh review-result <issue-id.rvNNN-rNNN-author> <block|pass|note>
   task.sh progress <task-id> <sNN-slug> [state]
+  task.sh progress-move <task-id.sNN-slug> <state>
   task.sh ls [state]
   task.sh find <id>
   task.sh show <task-id>
@@ -1463,6 +1526,49 @@ cmd_progress() {
   echo "$file"
 }
 
+cmd_progress_move() {
+  local root="$1"
+  local progress_id="$2"
+  local new_state="$3"
+  local file base task_id old_state parent_file parent_state new_file
+
+  assert_control_plane_checkout "$root" "progress-move"
+  progress_id="$(normalize_doc_id "$progress_id")"
+  [[ "$progress_id" =~ ^tk${ID_DIGITS_RE}\.s[0-9]{2}-[a-z0-9-]+$ ]] \
+    || die "progress id must look like tk10000.s01-repro"
+  is_valid_progress_state "$new_state" || die "progress state must be one of: ${VALID_PROGRESS_STATES}"
+
+  file="$(find_doc_file "$root" "$progress_id")"
+  base="$(basename "$file")"
+  [[ "$base" =~ ^(tk${ID_DIGITS_RE})\.(s[0-9]{2}-[a-z0-9-]+)\.(tdo|doi|dne|bkd|cand|arvd)\.md$ ]] \
+    || die "invalid progress filename: $file"
+  task_id="${BASH_REMATCH[1]}"
+  old_state="${BASH_REMATCH[3]}"
+  [[ "$old_state" != "$new_state" ]] || die "progress already in state ${new_state}"
+
+  parent_file="$(find_task_file_anywhere "$root" "$task_id")"
+  parent_state="$(task_state_from_file "$parent_file")"
+  case "$parent_state" in
+    tdo)
+      [[ "$new_state" == "tdo" ]] || die "progress for ${task_id}.${parent_state} must be tdo"
+      ;;
+    doi)
+      [[ "$new_state" == "doi" || "$new_state" == "dne" ]] || die "progress for ${task_id}.${parent_state} must be doi or dne"
+      ;;
+    cand|dne|arvd|bkd)
+      [[ "$new_state" == "dne" ]] || die "closed task cannot keep open progress: ${task_id}.${parent_state}"
+      ;;
+    *)
+      die "unknown parent state for ${task_id}: ${parent_state}"
+      ;;
+  esac
+
+  new_file="$(dirname "$file")/$(progress_basename_with_state "$file" "$new_state")"
+  [[ ! -e "$new_file" ]] || die "progress target already exists: ${new_file}"
+
+  rename_progress_state "$file" "$new_state"
+}
+
 cmd_review() {
   local root="$1"
   local issue_id thread round_author result file
@@ -1482,6 +1588,35 @@ cmd_review() {
   [[ ! -e "$file" ]] || die "document already exists: $file"
 
   write_new_issue_doc "$file" "rv" "$result"
+  echo "$file"
+}
+
+cmd_review_result() {
+  local root="$1"
+  local review_id="$2"
+  local new_result="$3"
+  local file old_result current_result new_file
+
+  assert_control_plane_checkout "$root" "review-result"
+  review_id="$(normalize_doc_id "$review_id")"
+  [[ "$review_id" =~ ^(tk|pl|rs|rf)${ID_DIGITS_RE}\.rv[0-9]{3}-r[0-9]{3}-[a-z0-9-]+(\.(block|pass|note))?$ ]] \
+    || die "review id must look like tk10000.rv001-r001-codex"
+  is_valid_review_result "$new_result" || die "review result must be block, pass, or note"
+
+  file="$(find_doc_file "$root" "$review_id")"
+  old_result="$(parse_review_outcome_from_filename "$file")"
+  current_result="$(extract_frontmatter_scalar "$file" "result")"
+  if [[ "$old_result" == "$new_result" && "$current_result" == "$new_result" ]]; then
+    die "review already has result ${new_result}"
+  fi
+
+  new_file="$(dirname "$file")/$(review_basename_with_result "$file" "$new_result")"
+  if [[ "$new_file" != "$file" ]]; then
+    [[ ! -e "$new_file" ]] || die "review result target already exists: ${new_file}"
+    file="$(rename_review_result "$file" "$new_result")"
+  fi
+
+  upsert_frontmatter_scalar "$file" "result" "$new_result"
   echo "$file"
 }
 
@@ -3021,11 +3156,23 @@ main() {
       [[ $# -ge 4 && $# -le 5 ]] || die "usage: task.sh review <issue-id> <rvNNN> <rNNN-author> [block|pass|note]"
       cmd_review "$control_root" "$2" "$3" "$4" "${5:-note}"
       ;;
+    review-result)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -eq 3 ]] || die "usage: task.sh review-result <issue-id.rvNNN-rNNN-author> <block|pass|note>"
+      cmd_review_result "$control_root" "$2" "$3"
+      ;;
     progress)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
       control_root="$(find_control_plane_root "$current_root")"
       [[ $# -ge 3 && $# -le 4 ]] || die "usage: task.sh progress <task-id> <sNN-slug> [state]"
       cmd_progress "$control_root" "$2" "$3" "${4:-}"
+      ;;
+    progress-move)
+      current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
+      control_root="$(find_control_plane_root "$current_root")"
+      [[ $# -eq 3 ]] || die "usage: task.sh progress-move <task-id.sNN-slug> <state>"
+      cmd_progress_move "$control_root" "$2" "$3"
       ;;
     ls)
       current_root="$(find_project_root)" || die "run from a project directory that contains issues/"
